@@ -3,9 +3,11 @@ import pandas as pd
 import plotly.express as px
 import time
 import random
+from datetime import datetime
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import make_pipeline
+from textblob import TextBlob
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
@@ -15,66 +17,76 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. SESSION STATE & DATA LOADING ---
-if 'df' not in st.session_state:
+# --- 2. DATA LOADING & SAVING LOGIC ---
+@st.cache_data
+def load_initial_data():
     try:
         df = pd.read_csv('Comcast.csv')
-        df['Customer Complaint'] = df['Customer Complaint'].str.replace('Comcast', 'Jazz', case=False)
-        df['Customer Complaint'] = df['Customer Complaint'].str.replace('comcast', 'Jazz', case=False)
-        df = df.rename(columns={'Customer Complaint': 'text', 'Received Via': 'category', 'Status': 'status'})
-        df = df.dropna(subset=['text', 'category'])
-        st.session_state['df'] = df
+        # Data Cleaning
+        if 'Customer Complaint' in df.columns:
+            df['Customer Complaint'] = df['Customer Complaint'].str.replace('Comcast', 'Jazz', case=False)
+            df['Customer Complaint'] = df['Customer Complaint'].str.replace('comcast', 'Jazz', case=False)
+            df = df.rename(columns={'Customer Complaint': 'text', 'Received Via': 'category', 'Status': 'status'})
+            df = df.dropna(subset=['text', 'category'])
+        
+        # Ensure all columns exist
+        if 'Sentiment' not in df.columns: df['Sentiment'] = 'Neutral'
+        if 'Ticket_ID' not in df.columns: df['Ticket_ID'] = "N/A"
+        if 'Time' not in df.columns: df['Time'] = "N/A"
+        if 'Phone_Number' not in df.columns: df['Phone_Number'] = "N/A"
+            
+        return df
     except FileNotFoundError:
-        st.error("❌ Error: 'Comcast.csv' file not found.")
-        st.session_state['df'] = pd.DataFrame(columns=['text', 'category', 'status'])
+        return pd.DataFrame(columns=['text', 'category', 'status', 'Sentiment', 'Ticket_ID', 'Time', 'Phone_Number'])
+
+if 'df' not in st.session_state:
+    st.session_state['df'] = load_initial_data()
 
 df = st.session_state['df']
 
-# --- 3. BIG DATA TRAINING (Advanced English Logic) ---
+# --- 3. BIG DATA TRAINING (FULL LIST) ---
 big_training_data = [
-    # BILLING ISSUES
+    # BILLING
     {"text": "I have been overcharged this month", "category": "Billing", "status": "Open"},
-    {"text": "My balance was deducted automatically without any reason", "category": "Billing", "status": "Open"},
-    {"text": "Incorrect billing amount on my invoice", "category": "Billing", "status": "Pending"},
-    {"text": "Please refund my money immediately", "category": "Billing", "status": "Open"},
-    {"text": "Where did my recharge go? Balance is zero", "category": "Billing", "status": "Open"},
-    {"text": "Hidden charges applied to my account", "category": "Billing", "status": "Solved"},
-    {"text": "I paid the bill but service is not active", "category": "Billing", "status": "Open"},
-    {"text": "Tax deduction is too high on my recharge", "category": "Billing", "status": "Pending"},
-    {"text": "My package was not subscribed but money cut", "category": "Billing", "status": "Open"},
-    {"text": "Requesting a cashback or refund for failed transaction", "category": "Billing", "status": "Open"},
-    {"text": "Bill history is showing wrong calculations", "category": "Billing", "status": "Pending"},
-    {"text": "I want to dispute a charge on my bill", "category": "Billing", "status": "Open"},
-    {"text": "My credit limit is incorrect", "category": "Billing", "status": "Solved"},
-    {"text": "I was charged twice for the same package", "category": "Billing", "status": "Open"},
-
-    # CUSTOMER SUPPORT / HUMAN AGENT
+    {"text": "My balance was deducted automatically", "category": "Billing", "status": "Open"},
+    {"text": "Incorrect billing amount", "category": "Billing", "status": "Pending"},
+    {"text": "Please refund my money", "category": "Billing", "status": "Open"},
+    {"text": "Where did my recharge go?", "category": "Billing", "status": "Open"},
+    {"text": "Hidden charges applied", "category": "Billing", "status": "Solved"},
+    {"text": "I paid the bill but service not active", "category": "Billing", "status": "Open"},
+    {"text": "Tax deduction is too high", "category": "Billing", "status": "Pending"},
+    {"text": "Package not subscribed money cut", "category": "Billing", "status": "Open"},
+    {"text": "Requesting cashback refund", "category": "Billing", "status": "Open"},
+    {"text": "Bill history wrong calculations", "category": "Billing", "status": "Pending"},
+    {"text": "Dispute charge on bill", "category": "Billing", "status": "Open"},
+    
+    # CUSTOMER SUPPORT / HUMAN
     {"text": "I want to talk to a human agent", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Connect me to customer support staff", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "I need to speak to a representative regarding my issue", "category": "Customer Care Call", "status": "Open"},
-    {"text": "Is there a real person I can talk to?", "category": "Customer Care Call", "status": "Pending"},
+    {"text": "Connect me to customer support", "category": "Customer Care Call", "status": "Pending"},
+    {"text": "Speak to representative", "category": "Customer Care Call", "status": "Open"},
+    {"text": "Is there a real person?", "category": "Customer Care Call", "status": "Pending"},
     {"text": "Connect call to staff immediately", "category": "Customer Care Call", "status": "Closed"},
     {"text": "I want to speak to a manager", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Helpline is not working, connect me to chat support", "category": "Customer Care Call", "status": "Open"},
-    {"text": "Transfer this chat to a live agent right now", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "I need to change ownership of my SIM", "category": "Customer Care Call", "status": "Solved"},
-    {"text": "My SIM is blocked, I need help from staff", "category": "Customer Care Call", "status": "Open"},
-    {"text": "I lost my SIM card, please block it", "category": "Customer Care Call", "status": "Solved"},
-    {"text": "PUK code required for my number", "category": "Customer Care Call", "status": "Open"},
-    {"text": "I have a complaint about your service", "category": "Customer Care Call", "status": "Open"},
+    {"text": "Helpline not working connect chat", "category": "Customer Care Call", "status": "Open"},
+    {"text": "Transfer to live agent", "category": "Customer Care Call", "status": "Pending"},
+    {"text": "Change ownership of SIM", "category": "Customer Care Call", "status": "Solved"},
+    {"text": "My SIM is blocked", "category": "Customer Care Call", "status": "Open"},
+    {"text": "I lost my SIM card", "category": "Customer Care Call", "status": "Solved"},
+    {"text": "PUK code required", "category": "Customer Care Call", "status": "Open"},
+    {"text": "Complaint about service", "category": "Customer Care Call", "status": "Open"},
 
-    # INTERNET ISSUES
+    # INTERNET
     {"text": "My internet speed is extremely slow", "category": "Internet", "status": "Open"},
-    {"text": "Buffering issues while watching YouTube", "category": "Internet", "status": "Open"},
-    {"text": "Packet loss and high ping in games", "category": "Internet", "status": "Pending"},
-    {"text": "My router is blinking red light", "category": "Internet", "status": "Open"},
-    {"text": "No internet access even though connected", "category": "Internet", "status": "Open"},
-    {"text": "WiFi signal is very weak in my room", "category": "Internet", "status": "Solved"},
-    {"text": "4G LTE is not working on my phone", "category": "Internet", "status": "Open"},
+    {"text": "Buffering issues YouTube", "category": "Internet", "status": "Open"},
+    {"text": "Packet loss high ping", "category": "Internet", "status": "Pending"},
+    {"text": "Router blinking red light", "category": "Internet", "status": "Open"},
+    {"text": "No internet access connected", "category": "Internet", "status": "Open"},
+    {"text": "WiFi signal weak", "category": "Internet", "status": "Solved"},
+    {"text": "4G LTE not working", "category": "Internet", "status": "Open"},
     {"text": "Data is not working", "category": "Internet", "status": "Open"},
 ]
 
-# Force Training (20x Repetition)
+# Force Training
 df_extra = pd.DataFrame(big_training_data * 20)
 df_train = pd.concat([df, df_extra], ignore_index=True)
 
@@ -83,122 +95,189 @@ model.fit(df_train['text'], df_train['category'])
 
 # --- 4. SIDEBAR ---
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Jazz_logo.png/320px-Jazz_logo.png", width=120)
-st.sidebar.markdown("### ⚙️ Live Controls")
-
-status_filter = st.sidebar.multiselect(
-    "Filter Status:",
-    options=df['status'].unique(),
-    default=df['status'].unique()
-)
-df_filtered = df[df['status'].isin(status_filter)]
-
+st.sidebar.markdown("### 🎛️ System Access")
+user_role = st.sidebar.radio("Select User Mode:", ["Customer Portal", "Manager Dashboard"])
 st.sidebar.markdown("---")
-st.sidebar.info(f"📊 **Active Tickets:** {len(df)}")
 
-# --- 5. MAIN TABS ---
-st.title("📡 Jazz Enterprise Solutions")
-tab1, tab2 = st.tabs(["📊 Live Dashboard", "🤖 AI Resolution Agent"])
+# --- 5. MAIN LOGIC ---
 
-# === TAB 1: DASHBOARD ===
-with tab1:
-    st.markdown("### 📈 Real-Time Analytics")
+# =========================================
+# SCENARIO A: CUSTOMER VIEW
+# =========================================
+if user_role == "Customer Portal":
     
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    total = len(df_filtered)
-    internet = len(df_filtered[df_filtered['category'].str.contains("Internet")])
-    solved = len(df_filtered[df_filtered['status'].isin(["Closed", "Solved"])])
-    escalated = len(df_filtered[df_filtered['status'].str.contains("Escalated", na=False)]) 
+    st.title("👋 Jazz Customer Support AI")
     
-    kpi1.metric("Total Tickets", total, "Live")
-    kpi2.metric("Internet Issues", internet, "Top Category")
-    kpi3.metric("Solved Cases", solved, "✅ Success")
-    kpi4.metric("Escalated (Manager)", escalated, "🔥 High Priority")
-    
-    st.markdown("---")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("📉 Complaints by Category")
-        cat_counts = df_filtered['category'].value_counts().reset_index()
-        cat_counts.columns = ['Category', 'Count']
-        fig_bar = px.bar(cat_counts, x='Category', y='Count', color='Category', template="plotly_white")
-        st.plotly_chart(fig_bar, use_container_width=True)
-        
-    with c2:
-        st.subheader("🥧 Live Status Distribution")
-        fig_pie = px.pie(df_filtered, names='status', hole=0.4, template="plotly_white", title="Current Status")
-        st.plotly_chart(fig_pie, use_container_width=True)
+    # LOGIN GATE
+    if 'customer_logged_in' not in st.session_state:
+        st.session_state['customer_logged_in'] = False
 
-# === TAB 2: AI AGENT ===
-with tab2:
-    st.markdown("### 🤖 Smart Agent with Feedback Loop")
-    
-    with st.container():
-        user_input = st.text_area("📝 Enter Complaint:", height=80, placeholder="e.g., My internet is extremely slow...")
-        
-        if st.button("🚀 Analyze", type="primary"):
-            if user_input and model:
-                with st.spinner('Analyzing intent...'):
-                    time.sleep(1)
-                category = model.predict([user_input])[0]
-                st.session_state['last_result'] = category
-                st.session_state['last_input'] = user_input
-                st.session_state['show_feedback'] = True
-            else:
-                st.warning("Please enter text first.")
-
-        if 'show_feedback' in st.session_state and st.session_state['show_feedback']:
-            
-            # Bug Fix Check: Text Changed?
-            if user_input != st.session_state['last_input']:
-                st.warning("⚠️ You have changed the text. Please click '🚀 Analyze' again to get the new result.")
-            
-            else:
-                category = st.session_state['last_result']
-                txt_input = st.session_state['last_input']
-                
-                st.info(f"**AI Result:** {category}")
-                
-                # Customer Facing Solutions
-                st.markdown("### 💡 Suggested Solution:")
-                if "Internet" in category:
-                     st.info("👉 **Step 1:** Please turn off your Router/Modem.\n\n👉 **Step 2:** Wait for 30 seconds and turn it on again.")
-                elif "Billing" in category:
-                    st.info("👉 We have checked your account history.\n\nPlease open your **Jazz World App** to view the last 3 deductions.")
-                elif "Customer Care Call" in category:
-                     st.info("👉 Our lines are currently busy, but we can connect you to a Live Agent via Chat immediately.")
+    if not st.session_state['customer_logged_in']:
+        st.info("🔒 Please verify your identity.")
+        with st.form("login_form"):
+            phone = st.text_input("Enter Registered Phone Number:", placeholder="03001234567")
+            submitted = st.form_submit_button("🔓 Start Chat")
+            if submitted:
+                if len(phone) == 11 and phone.startswith("03"):
+                    st.session_state['customer_logged_in'] = True
+                    st.session_state['phone'] = phone
+                    st.success("Verified!")
+                    time.sleep(0.5)
+                    st.rerun()
                 else:
-                    st.info("👉 Your request has been noted. Our technical team will analyze this issue.")
+                    st.error("Invalid Number format.")
+    else:
+        st.caption(f"Logged in as: {st.session_state['phone']}")
+        if st.button("Log Out"):
+            st.session_state['customer_logged_in'] = False
+            st.rerun()
+        st.markdown("---")
+        
+        # CHAT INTERFACE
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
 
-                st.markdown("---")
-                st.write("### ❓ Did this solve the issue?")
-                
-                c_yes, c_no = st.columns(2)
-                
-                # YES Button
-                if c_yes.button("✅ Yes, Solved"):
-                    new_row = {'text': txt_input, 'category': category, 'status': 'Solved'}
-                    st.session_state['df'] = pd.concat([st.session_state['df'], pd.DataFrame([new_row])], ignore_index=True)
-                    st.balloons()
-                    st.success("Ticket Closed! Dashboard Updated.")
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        if prompt := st.chat_input("Type complaint here..."):
+            st.chat_message("user").markdown(prompt)
+            st.session_state.messages.append({"role": "user", "content": prompt})
+
+            prompt_lower = prompt.lower()
+            greetings = ["hello", "hi", "hey", "salam"]
+            thanks = ["thank", "thanks", "ok", "solved"]
+            
+            with st.chat_message("assistant"):
+                with st.spinner("Processing..."):
+                    time.sleep(0.8)
+                    
+                    if any(x in prompt_lower for x in greetings):
+                        response = "👋 **Hello!** I am your Jazz AI Assistant."
+                    elif any(x in prompt_lower for x in thanks):
+                        response = "🌟 **You're Welcome!** Happy to help."
+                        st.balloons()
+                    else:
+                        category = model.predict([prompt])[0]
+                        blob = TextBlob(prompt)
+                        mood = "Negative" if blob.sentiment.polarity < -0.1 else "Positive" if blob.sentiment.polarity > 0.1 else "Neutral"
+                        mood_icon = "😡" if mood == "Negative" else "😊" if mood == "Positive" else "😐"
+                        
+                        response = f"**Category:** {category} | **Mood:** {mood} {mood_icon}\n\n"
+                        if "Internet" in category: response += "💡 **Solution:** Restart Router (30s off/on)."
+                        elif "Billing" in category: response += "💡 **Solution:** Check Jazz World App."
+                        elif "Customer Care Call" in category: response += "🎧 Connecting to Live Agent..."
+                        else: response += "💡 **Solution:** Ticket logged."
+                        
+                        st.session_state['show_buttons'] = True
+                        st.session_state['last_cat'] = category
+                        st.session_state['last_mood'] = mood
+                        st.session_state['last_txt'] = prompt
+
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+
+        # BUTTONS
+        if st.session_state.get('show_buttons', False):
+            st.markdown("---")
+            c1, c2 = st.columns(2)
+            
+            if c1.button("✅ Solved"):
+                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                new_row = {
+                    'text': st.session_state['last_txt'], 
+                    'category': st.session_state['last_cat'], 
+                    'status': 'Solved', 
+                    'Sentiment': st.session_state['last_mood'],
+                    'Ticket_ID': "Auto-Resolved",
+                    'Time': current_time,
+                    'Phone_Number': st.session_state['phone']
+                }
+                updated_df = pd.concat([st.session_state['df'], pd.DataFrame([new_row])], ignore_index=True)
+                st.session_state['df'] = updated_df
+                updated_df.to_csv('Comcast.csv', index=False)
+                st.success("Saved!")
+                st.session_state['show_buttons'] = False
+                time.sleep(1)
+                st.rerun()
+            
+            if c2.button("❌ Escalate"):
+                st.session_state['show_form'] = True
+        
+        # MANAGER FORM
+        if st.session_state.get('show_form', False):
+            with st.form("esc_form"):
+                st.write("⚠️ Escalating to Human Manager")
+                ph = st.text_input("Confirm Phone:", value=st.session_state.get('phone', ''))
+                sub = st.form_submit_button("Send to Manager")
+                if sub:
+                    import random
+                    ticket_id = random.randint(1000, 9999)
+                    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    new_row = {
+                        'text': st.session_state['last_txt'], 
+                        'category': st.session_state['last_cat'], 
+                        'status': 'Escalated', 
+                        'Sentiment': st.session_state['last_mood'],
+                        'Ticket_ID': ticket_id,
+                        'Time': current_time,
+                        'Phone_Number': ph
+                    }
+                    updated_df = pd.concat([st.session_state['df'], pd.DataFrame([new_row])], ignore_index=True)
+                    st.session_state['df'] = updated_df
+                    updated_df.to_csv('Comcast.csv', index=False)
+                    
+                    st.success(f"Escalated! Ticket #{ticket_id}")
+                    st.session_state['show_buttons'] = False
+                    st.session_state['show_form'] = False
                     time.sleep(1)
                     st.rerun()
-                
-                # NO Button
-                if c_no.button("❌ No, Issue Persists"):
-                    st.session_state['show_contact_form'] = True
-                
-                # Escalation Form
-                if 'show_contact_form' in st.session_state and st.session_state['show_contact_form']:
-                    st.warning("⚠️ Escalating to Human Manager.")
-                    with st.form("escalation"):
-                        phone = st.text_input("Enter Phone Number:")
-                        submit = st.form_submit_button("📩 Send to Manager")
-                        
-                        if submit:
-                            ticket_id = random.randint(1000, 9999)
-                            new_row = {'text': txt_input, 'category': category, 'status': 'Escalated'}
-                            st.session_state['df'] = pd.concat([st.session_state['df'], pd.DataFrame([new_row])], ignore_index=True)
-                            st.success(f"Request Sent! Ticket #{ticket_id} Created.")
-                            time.sleep(1)
-                            st.rerun()
+
+# =========================================
+# SCENARIO B: MANAGER VIEW
+# =========================================
+elif user_role == "Manager Dashboard":
+    
+    st.sidebar.warning("🔒 Authorization Required")
+    password = st.sidebar.text_input("Admin Password:", type="password")
+    
+    if password == "admin123":
+        st.title("📊 Executive Analytics Dashboard")
+        
+        filter_stat = st.sidebar.multiselect("Filter Status:", options=df['status'].unique(), default=df['status'].unique())
+        df_view = df[df['status'].isin(filter_stat)]
+        
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Total Tickets", len(df_view))
+        k2.metric("Internet Issues", len(df_view[df_view['category'].str.contains("Internet")]))
+        k3.metric("Solved", len(df_view[df_view['status'].isin(["Solved", "Closed"])]))
+        k4.metric("Escalated", len(df_view[df_view['status'] == 'Escalated']), "Action Req.")
+        
+        st.markdown("---")
+        g1, g2 = st.columns(2)
+        with g1:
+            st.subheader("Complaints Volume")
+            v_count = df_view['category'].value_counts().reset_index()
+            v_count.columns = ['Category', 'Count']
+            st.plotly_chart(px.bar(v_count, x='Category', y='Count', color='Category'), use_container_width=True)
+        with g2:
+            st.subheader("Sentiment Analysis")
+            if 'Sentiment' in df_view.columns:
+                s_count = df_view['Sentiment'].value_counts().reset_index()
+                s_count.columns = ['Mood', 'Count']
+                st.plotly_chart(px.pie(s_count, names='Mood', values='Count', color='Mood', color_discrete_map={"Negative":"red", "Positive":"green", "Neutral":"blue"}), use_container_width=True)
+        
+        # --- DETAILED TABLE WITH PHONE & TIME ---
+        st.markdown("### 📋 Recent Escalations (Action Required)")
+        escalated_df = df[df['status'] == 'Escalated']
+        if not escalated_df.empty:
+            display_cols = ['Ticket_ID', 'Time', 'Phone_Number', 'category', 'text', 'Sentiment']
+            existing_cols = [c for c in display_cols if c in escalated_df.columns]
+            st.dataframe(escalated_df[existing_cols].tail(10), use_container_width=True)
+        else:
+            st.success("No Pending Escalations. Good Job! 🎉")
+        
+    else:
+        st.error("🚫 Access Denied.")

@@ -8,276 +8,334 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import make_pipeline
 from textblob import TextBlob
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import speech_recognition as sr
+import google.generativeai as genai
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Jazz Enterprise AI",
+    page_title="Jazz Future AI",
     page_icon="📡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- 2. DATA LOADING & SAVING LOGIC ---
+# --- 2. GEMINI API SETUP ---
+GEMINI_AVAILABLE = False
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        GEMINI_AVAILABLE = True
+except:
+    pass
+
+def enhance_with_gemini(user_text, category, tech_solution, mood):
+    if not GEMINI_AVAILABLE: return tech_solution 
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        prompt = f"""
+        Act as a polite Customer Support Agent for 'Jazz Telecom'.
+        User Complaint: "{user_text}"
+        Category: "{category}"
+        User Mood: "{mood}"
+        Technical Solution: "{tech_solution}"
+        
+        Task: Rewrite the Technical Solution in a natural, helpful, and professional tone.
+        - Keep it short (3 lines max).
+        - If mood is negative, show empathy.
+        - Use emojis 📡.
+        """
+        response = model.generate_content(prompt)
+        return response.text
+    except:
+        return tech_solution
+
+# --- 3. DARK HACKER THEME CSS (WITH GRADIENT HEADER) 🎨 ---
+st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
+        
+        /* Deep Dark Background */
+        .stApp { 
+            background: radial-gradient(circle at 10% 20%, rgb(10, 20, 40) 0%, rgb(5, 10, 25) 90%); 
+            color: white; 
+        }
+        
+        /* Glass Sidebar */
+        [data-testid="stSidebar"] { 
+            background-color: rgba(255, 255, 255, 0.05); 
+            backdrop-filter: blur(10px); 
+            border-right: 1px solid rgba(255, 255, 255, 0.1); 
+        }
+        
+        #MainMenu {visibility: hidden;} 
+        footer {visibility: hidden;} 
+        
+        /* Glowing Cards */
+        .kpi-card { 
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 16px; 
+            padding: 20px; 
+            text-align: center; 
+            backdrop-filter: blur(10px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); 
+            transition: transform 0.3s ease; 
+        }
+        .kpi-card:hover { 
+            transform: translateY(-5px); 
+            border-color: #D32F2F; 
+            box-shadow: 0 0 20px rgba(211, 47, 47, 0.4); 
+        }
+        .kpi-value { 
+            font-size: 36px; 
+            font-weight: 700; 
+            background: -webkit-linear-gradient(#fff, #ccc); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+        .kpi-label { 
+            font-size: 12px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; 
+        }
+        
+        /* Neon Buttons */
+        .stButton>button { 
+            background: linear-gradient(90deg, #D32F2F, #880E4F); 
+            color: white; border: none; border-radius: 30px; 
+            padding: 12px 30px; font-weight: 600; transition: 0.4s; width: 100%; 
+        }
+        .stButton>button:hover { 
+            background: linear-gradient(90deg, #FF5252, #D32F2F); 
+            transform: scale(1.02); 
+            box-shadow: 0 0 15px rgba(255, 82, 82, 0.6); 
+        }
+        
+        /* Chat & Inputs */
+        .stChatMessage { background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; }
+        .stTextInput>div>div>input { background-color: rgba(255, 255, 255, 0.1); color: white; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- 4. SMART LOGIC ENGINE ---
+def get_smart_solution(category, text):
+    text = text.lower()
+    valid_keywords = ["net", "speed", "internet", "wifi", "router", "modem", "slow", "buffer", "lag", "connect", "bill", "balance", "money", "charge", "deduct", "tax", "refund", "payment", "load", "recharge", "sim", "call", "agent", "manager", "staff", "representative", "human", "puk", "block", "offer", "package", "signal", "range", "gaming", "ping", "light", "red", "history", "invoice", "service", "issue", "problem"]
+    if not any(word in text for word in valid_keywords): return None, "🤔 **Out of Scope:** I am trained only for Telecom issues."
+
+    if category == "Internet":
+        if any(x in text for x in ["red", "blink", "light"]): return "Critical", "🔴 **Hardware:** Check yellow fiber cable."
+        elif any(x in text for x in ["slow", "speed", "buffer"]): return "Bandwidth", "📉 **Speed:** Restart router (30s off/on)."
+        elif any(x in text for x in ["game", "ping"]): return "Gaming", "🎮 **Gaming:** Use LAN Cable."
+        elif any(x in text for x in ["password", "connect"]): return "Access", "🔑 **Login:** Reset WiFi password via App."
+        else: return "General", "🌐 **Connectivity:** Restart router."
+    elif category == "Billing":
+        if any(x in text for x in ["tax", "deduction"]): return "Tax", "💸 **Tax:** 15% Tax applies."
+        elif any(x in text for x in ["package", "offer"]): return "Subscription", "📦 **Offer:** Unsubscribe via *111#."
+        elif any(x in text for x in ["refund", "balance", "money"]): return "Refund", "💰 **Refund:** Checking history... Error balance reversed."
+        else: return "General Bill", "💳 **Billing:** Check usage history in App."
+    elif category == "Customer Care Call":
+        if any(x in text for x in ["sim", "block", "puk"]): return "Security", "🚫 **SIM:** Visit Franchise for Biometric."
+        else: return "Human Agent", "🎧 **Support:** Connecting to agent..."
+    return "General", "👉 Request forwarded to Tech Team."
+
+# --- 5. DATA LOAD ---
 @st.cache_data
 def load_initial_data():
     try:
         df = pd.read_csv('Comcast.csv')
-        # Data Cleaning
         if 'Customer Complaint' in df.columns:
             df['Customer Complaint'] = df['Customer Complaint'].str.replace('Comcast', 'Jazz', case=False)
             df['Customer Complaint'] = df['Customer Complaint'].str.replace('comcast', 'Jazz', case=False)
             df = df.rename(columns={'Customer Complaint': 'text', 'Received Via': 'category', 'Status': 'status'})
             df = df.dropna(subset=['text', 'category'])
-        
-        # Ensure all columns exist
         if 'Sentiment' not in df.columns: df['Sentiment'] = 'Neutral'
         if 'Ticket_ID' not in df.columns: df['Ticket_ID'] = "N/A"
         if 'Time' not in df.columns: df['Time'] = "N/A"
         if 'Phone_Number' not in df.columns: df['Phone_Number'] = "N/A"
-            
         return df
-    except FileNotFoundError:
-        return pd.DataFrame(columns=['text', 'category', 'status', 'Sentiment', 'Ticket_ID', 'Time', 'Phone_Number'])
+    except: return pd.DataFrame(columns=['text', 'category', 'status', 'Sentiment', 'Ticket_ID', 'Time', 'Phone_Number'])
 
-if 'df' not in st.session_state:
-    st.session_state['df'] = load_initial_data()
-
+if 'df' not in st.session_state: st.session_state['df'] = load_initial_data()
 df = st.session_state['df']
 
-# --- 3. BIG DATA TRAINING (FULL LIST) ---
+# --- 6. BIG DATA TRAINING ---
 big_training_data = [
-    # BILLING
-    {"text": "I have been overcharged this month", "category": "Billing", "status": "Open"},
-    {"text": "My balance was deducted automatically", "category": "Billing", "status": "Open"},
-    {"text": "Incorrect billing amount", "category": "Billing", "status": "Pending"},
-    {"text": "Please refund my money", "category": "Billing", "status": "Open"},
-    {"text": "Where did my recharge go?", "category": "Billing", "status": "Open"},
-    {"text": "Hidden charges applied", "category": "Billing", "status": "Solved"},
-    {"text": "I paid the bill but service not active", "category": "Billing", "status": "Open"},
-    {"text": "Tax deduction is too high", "category": "Billing", "status": "Pending"},
-    {"text": "Package not subscribed money cut", "category": "Billing", "status": "Open"},
-    {"text": "Requesting cashback refund", "category": "Billing", "status": "Open"},
-    {"text": "Bill history wrong calculations", "category": "Billing", "status": "Pending"},
-    {"text": "Dispute charge on bill", "category": "Billing", "status": "Open"},
-    
-    # CUSTOMER SUPPORT / HUMAN
-    {"text": "I want to talk to a human agent", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Connect me to customer support", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Speak to representative", "category": "Customer Care Call", "status": "Open"},
-    {"text": "Is there a real person?", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Connect call to staff immediately", "category": "Customer Care Call", "status": "Closed"},
-    {"text": "I want to speak to a manager", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Helpline not working connect chat", "category": "Customer Care Call", "status": "Open"},
-    {"text": "Transfer to live agent", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "Change ownership of SIM", "category": "Customer Care Call", "status": "Solved"},
-    {"text": "My SIM is blocked", "category": "Customer Care Call", "status": "Open"},
-    {"text": "I lost my SIM card", "category": "Customer Care Call", "status": "Solved"},
-    {"text": "PUK code required", "category": "Customer Care Call", "status": "Open"},
-    {"text": "Complaint about service", "category": "Customer Care Call", "status": "Open"},
-
-    # INTERNET
-    {"text": "My internet speed is extremely slow", "category": "Internet", "status": "Open"},
-    {"text": "Buffering issues YouTube", "category": "Internet", "status": "Open"},
-    {"text": "Packet loss high ping", "category": "Internet", "status": "Pending"},
-    {"text": "Router blinking red light", "category": "Internet", "status": "Open"},
-    {"text": "No internet access connected", "category": "Internet", "status": "Open"},
-    {"text": "WiFi signal weak", "category": "Internet", "status": "Solved"},
-    {"text": "4G LTE not working", "category": "Internet", "status": "Open"},
-    {"text": "Data is not working", "category": "Internet", "status": "Open"},
+    {"text": "overcharged month", "category": "Billing", "status": "Open"},
+    {"text": "balance deducted", "category": "Billing", "status": "Open"},
+    {"text": "refund money", "category": "Billing", "status": "Open"},
+    {"text": "talk to human agent", "category": "Customer Care Call", "status": "Pending"},
+    {"text": "internet speed slow", "category": "Internet", "status": "Open"},
+    {"text": "router red light", "category": "Internet", "status": "Open"},
+    {"text": "sim blocked", "category": "Customer Care Call", "status": "Open"},
+    {"text": "pubg ping high", "category": "Internet", "status": "Open"},
+    {"text": "tax deduction", "category": "Billing", "status": "Solved"},
+    {"text": "check bill history", "category": "Billing", "status": "Open"},
 ]
-
-# Force Training
-df_extra = pd.DataFrame(big_training_data * 20)
+df_extra = pd.DataFrame(big_training_data * 50)
 df_train = pd.concat([df, df_extra], ignore_index=True)
-
 model = make_pipeline(CountVectorizer(), MultinomialNB())
 model.fit(df_train['text'], df_train['category'])
 
-# --- 4. SIDEBAR ---
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Jazz_logo.png/320px-Jazz_logo.png", width=120)
-st.sidebar.markdown("### 🎛️ System Access")
-user_role = st.sidebar.radio("Select User Mode:", ["Customer Portal", "Manager Dashboard"])
+# --- 7. SIDEBAR ---
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Jazz_logo.png/320px-Jazz_logo.png", width=140)
+st.sidebar.markdown("### 🧠 AI Status")
+if GEMINI_AVAILABLE: st.sidebar.success("✅ Gemini 2.0: Active")
+else: st.sidebar.warning("⚠️ Gemini: Inactive")
+st.sidebar.markdown("---")
+user_role = st.sidebar.radio("Select Mode:", ["Customer Portal", "Manager Dashboard"])
 st.sidebar.markdown("---")
 
-# --- 5. MAIN LOGIC ---
-
-# =========================================
-# SCENARIO A: CUSTOMER VIEW
-# =========================================
+# --- 8. MAIN LOGIC ---
 if user_role == "Customer Portal":
+    # GRADIENT HEADER (ADVANCED LOOK)
+    st.markdown("""
+        <h1 style='text-align: center; background: -webkit-linear-gradient(#FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; font-size: 40px;'>
+        👋 Jazz Intelligent Support
+        </h1>
+        <p style='text-align: center; color: #aaa;'>Next-Gen AI Powered Assistance</p>
+    """, unsafe_allow_html=True)
     
-    st.title("👋 Jazz Customer Support AI")
-    
-    # LOGIN GATE
-    if 'customer_logged_in' not in st.session_state:
-        st.session_state['customer_logged_in'] = False
-
+    if 'customer_logged_in' not in st.session_state: st.session_state['customer_logged_in'] = False
     if not st.session_state['customer_logged_in']:
-        st.info("🔒 Please verify your identity.")
-        with st.form("login_form"):
-            phone = st.text_input("Enter Registered Phone Number:", placeholder="03001234567")
-            submitted = st.form_submit_button("🔓 Start Chat")
-            if submitted:
-                if len(phone) == 11 and phone.startswith("03"):
+        with st.form("login"):
+            phone = st.text_input("Phone Number:", placeholder="0300xxxxxxx")
+            if st.form_submit_button("🔓 Access"):
+                if len(phone) == 11:
                     st.session_state['customer_logged_in'] = True
                     st.session_state['phone'] = phone
-                    st.success("Verified!")
-                    time.sleep(0.5)
                     st.rerun()
-                else:
-                    st.error("Invalid Number format.")
+                else: st.error("Invalid Number")
     else:
-        st.caption(f"Logged in as: {st.session_state['phone']}")
-        if st.button("Log Out"):
+        col1, col2 = st.columns([4,1])
+        col1.caption(f"User: {st.session_state['phone']}")
+        if col2.button("Log Out"):
             st.session_state['customer_logged_in'] = False
             st.rerun()
-        st.markdown("---")
         
-        # CHAT INTERFACE
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+        # Voice Input
+        col_mic, _ = st.columns([1, 5])
+        voice_text = None
+        with col_mic:
+            if st.button("🎙️ Speak"):
+                r = sr.Recognizer()
+                with st.spinner("Listening..."):
+                    try:
+                        with sr.Microphone() as source:
+                            audio = r.listen(source, timeout=5)
+                            voice_text = r.recognize_google(audio)
+                            st.success(f"Voice: {voice_text}")
+                    except: st.error("Audio Error")
 
+        if "messages" not in st.session_state: st.session_state.messages = []
         for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+            with st.chat_message(message["role"]): st.markdown(message["content"])
 
-        if prompt := st.chat_input("Type complaint here..."):
+        prompt = st.chat_input("Type complaint...")
+        if voice_text: prompt = voice_text
+
+        if prompt:
             st.chat_message("user").markdown(prompt)
             st.session_state.messages.append({"role": "user", "content": prompt})
-
-            prompt_lower = prompt.lower()
-            greetings = ["hello", "hi", "hey", "salam"]
-            thanks = ["thank", "thanks", "ok", "solved"]
             
             with st.chat_message("assistant"):
-                with st.spinner("Processing..."):
-                    time.sleep(0.8)
+                with st.spinner("AI Thinking..."):
+                    time.sleep(0.5)
+                    prompt_lower = prompt.lower()
+                    greetings = ["hello", "hi", "salam"]
+                    thanks = ["thank", "ok", "solved"]
                     
                     if any(x in prompt_lower for x in greetings):
-                        response = "👋 **Hello!** I am your Jazz AI Assistant."
+                        response = "👋 **Hello!** I am your Jazz AI Assistant. How can I help you?"
                     elif any(x in prompt_lower for x in thanks):
-                        response = "🌟 **You're Welcome!** Happy to help."
+                        response = "🌟 **My Pleasure!**"
                         st.balloons()
                     else:
                         category = model.predict([prompt])[0]
-                        blob = TextBlob(prompt)
-                        mood = "Negative" if blob.sentiment.polarity < -0.1 else "Positive" if blob.sentiment.polarity > 0.1 else "Neutral"
-                        mood_icon = "😡" if mood == "Negative" else "😊" if mood == "Positive" else "😐"
+                        sol_type, raw_solution = get_smart_solution(category, prompt)
                         
-                        response = f"**Category:** {category} | **Mood:** {mood} {mood_icon}\n\n"
-                        if "Internet" in category: response += "💡 **Solution:** Restart Router (30s off/on)."
-                        elif "Billing" in category: response += "💡 **Solution:** Check Jazz World App."
-                        elif "Customer Care Call" in category: response += "🎧 Connecting to Live Agent..."
-                        else: response += "💡 **Solution:** Ticket logged."
-                        
-                        st.session_state['show_buttons'] = True
-                        st.session_state['last_cat'] = category
-                        st.session_state['last_mood'] = mood
-                        st.session_state['last_txt'] = prompt
-
+                        if sol_type is None:
+                            response = raw_solution
+                            st.session_state['show_buttons'] = False
+                        else:
+                            blob = TextBlob(prompt)
+                            mood = "Negative" if blob.sentiment.polarity < -0.1 else "Neutral"
+                            final_response = enhance_with_gemini(prompt, category, raw_solution, mood)
+                            st.session_state['show_buttons'] = True
+                            st.session_state['last_cat'] = category
+                            st.session_state['last_mood'] = mood
+                            st.session_state['last_txt'] = prompt
+                            response = final_response
+                    
                     st.markdown(response)
                     st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # BUTTONS
         if st.session_state.get('show_buttons', False):
-            st.markdown("---")
             c1, c2 = st.columns(2)
-            
             if c1.button("✅ Solved"):
-                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                new_row = {
-                    'text': st.session_state['last_txt'], 
-                    'category': st.session_state['last_cat'], 
-                    'status': 'Solved', 
-                    'Sentiment': st.session_state['last_mood'],
-                    'Ticket_ID': "Auto-Resolved",
-                    'Time': current_time,
-                    'Phone_Number': st.session_state['phone']
-                }
-                updated_df = pd.concat([st.session_state['df'], pd.DataFrame([new_row])], ignore_index=True)
-                st.session_state['df'] = updated_df
-                updated_df.to_csv('Comcast.csv', index=False)
+                row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Solved', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': "Auto", 'Time': datetime.now().strftime("%Y-%m-%d %H:%M"), 'Phone_Number': st.session_state['phone']}
+                st.session_state['df'] = pd.concat([st.session_state['df'], pd.DataFrame([row])], ignore_index=True)
+                st.session_state['df'].to_csv('Comcast.csv', index=False)
                 st.success("Saved!")
                 st.session_state['show_buttons'] = False
-                time.sleep(1)
                 st.rerun()
-            
-            if c2.button("❌ Escalate"):
-                st.session_state['show_form'] = True
+            if c2.button("❌ Escalate"): st.session_state['show_form'] = True
         
-        # MANAGER FORM
         if st.session_state.get('show_form', False):
-            with st.form("esc_form"):
-                st.write("⚠️ Escalating to Human Manager")
-                ph = st.text_input("Confirm Phone:", value=st.session_state.get('phone', ''))
-                sub = st.form_submit_button("Send to Manager")
-                if sub:
-                    import random
-                    ticket_id = random.randint(1000, 9999)
-                    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    new_row = {
-                        'text': st.session_state['last_txt'], 
-                        'category': st.session_state['last_cat'], 
-                        'status': 'Escalated', 
-                        'Sentiment': st.session_state['last_mood'],
-                        'Ticket_ID': ticket_id,
-                        'Time': current_time,
-                        'Phone_Number': ph
-                    }
-                    updated_df = pd.concat([st.session_state['df'], pd.DataFrame([new_row])], ignore_index=True)
-                    st.session_state['df'] = updated_df
-                    updated_df.to_csv('Comcast.csv', index=False)
-                    
-                    st.success(f"Escalated! Ticket #{ticket_id}")
+            with st.form("esc"):
+                st.write("⚠️ Manager Escalation")
+                ph = st.text_input("Confirm Phone:", value=st.session_state.get('phone',''))
+                if st.form_submit_button("Send Request"):
+                    tid = random.randint(1000,9999)
+                    row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Escalated', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': tid, 'Time': datetime.now().strftime("%Y-%m-%d %H:%M"), 'Phone_Number': ph}
+                    st.session_state['df'] = pd.concat([st.session_state['df'], pd.DataFrame([row])], ignore_index=True)
+                    st.session_state['df'].to_csv('Comcast.csv', index=False)
+                    st.success(f"Ticket #{tid} Escalated!")
                     st.session_state['show_buttons'] = False
                     st.session_state['show_form'] = False
-                    time.sleep(1)
                     st.rerun()
 
-# =========================================
-# SCENARIO B: MANAGER VIEW
-# =========================================
 elif user_role == "Manager Dashboard":
-    
-    st.sidebar.warning("🔒 Authorization Required")
-    password = st.sidebar.text_input("Admin Password:", type="password")
-    
-    if password == "admin123":
-        st.title("📊 Executive Analytics Dashboard")
+    st.sidebar.warning("🔒 Admin Area")
+    if st.sidebar.text_input("Password:", type="password") == "admin123":
+        st.markdown("""
+            <h2 style='background: -webkit-linear-gradient(#FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;'>
+            📊 Executive Analytics
+            </h2>""", unsafe_allow_html=True)
         
-        filter_stat = st.sidebar.multiselect("Filter Status:", options=df['status'].unique(), default=df['status'].unique())
+        filter_stat = st.sidebar.multiselect("Filter:", options=df['status'].unique(), default=df['status'].unique())
         df_view = df[df['status'].isin(filter_stat)]
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f"<div class='kpi-card'><div class='kpi-value'>{len(df_view)}</div><div class='kpi-label'>Total</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#FF5252;'>{len(df_view[df_view['category'].str.contains('Internet')])}</div><div class='kpi-label'>Net</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#69F0AE;'>{len(df_view[df_view['status'].isin(['Solved','Closed'])])}</div><div class='kpi-label'>Solved</div></div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#FFAB40;'>{len(df_view[df_view['status']=='Escalated'])}</div><div class='kpi-label'>Escalated</div></div>", unsafe_allow_html=True)
         
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Total Tickets", len(df_view))
-        k2.metric("Internet Issues", len(df_view[df_view['category'].str.contains("Internet")]))
-        k3.metric("Solved", len(df_view[df_view['status'].isin(["Solved", "Closed"])]))
-        k4.metric("Escalated", len(df_view[df_view['status'] == 'Escalated']), "Action Req.")
-        
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
         g1, g2 = st.columns(2)
         with g1:
-            st.subheader("Complaints Volume")
-            v_count = df_view['category'].value_counts().reset_index()
-            v_count.columns = ['Category', 'Count']
-            st.plotly_chart(px.bar(v_count, x='Category', y='Count', color='Category'), use_container_width=True)
+            v = df_view['category'].value_counts().reset_index()
+            v.columns=['Category','Count']
+            st.plotly_chart(px.bar(v, x='Category', y='Count', color='Category', template="plotly_dark"), use_container_width=True)
         with g2:
-            st.subheader("Sentiment Analysis")
             if 'Sentiment' in df_view.columns:
-                s_count = df_view['Sentiment'].value_counts().reset_index()
-                s_count.columns = ['Mood', 'Count']
-                st.plotly_chart(px.pie(s_count, names='Mood', values='Count', color='Mood', color_discrete_map={"Negative":"red", "Positive":"green", "Neutral":"blue"}), use_container_width=True)
+                s = df_view['Sentiment'].value_counts().reset_index()
+                s.columns=['Mood','Count']
+                st.plotly_chart(px.pie(s, names='Mood', values='Count', color='Mood', color_discrete_map={"Negative":"#FF5252", "Positive":"#69F0AE", "Neutral":"#448AFF"}, template="plotly_dark"), use_container_width=True)
         
-        # --- DETAILED TABLE WITH PHONE & TIME ---
-        st.markdown("### 📋 Recent Escalations (Action Required)")
-        escalated_df = df[df['status'] == 'Escalated']
-        if not escalated_df.empty:
-            display_cols = ['Ticket_ID', 'Time', 'Phone_Number', 'category', 'text', 'Sentiment']
-            existing_cols = [c for c in display_cols if c in escalated_df.columns]
-            st.dataframe(escalated_df[existing_cols].tail(10), use_container_width=True)
-        else:
-            st.success("No Pending Escalations. Good Job! 🎉")
-        
+        st.markdown("---")
+        if not df_view.empty:
+            st.subheader("☁️ Keyword Cloud")
+            text = " ".join(title for title in df_view.text.astype(str))
+            wc = WordCloud(width=800, height=300, background_color='#0e1117', colormap='Reds').generate(text)
+            fig, ax = plt.subplots(figsize=(10, 5), facecolor='#0e1117')
+            ax.imshow(wc, interpolation='bilinear')
+            ax.axis("off")
+            st.pyplot(fig)
+            
+        csv = df_view.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download CSV", csv, "Jazz_Report.csv", "text/csv")
+        st.dataframe(df.tail(10))
     else:
-        st.error("🚫 Access Denied.")
+        st.error("🚫 Access Denied")

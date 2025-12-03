@@ -12,6 +12,7 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import speech_recognition as sr
 import google.generativeai as genai
+import os
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
@@ -34,168 +35,141 @@ def enhance_with_gemini(user_text, category, tech_solution, mood):
     if not GEMINI_AVAILABLE: return tech_solution 
     try:
         model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        # --- ROMAN URDU DETECTION PROMPT ---
         prompt = f"""
-        Act as a polite Customer Support Agent for 'Jazz Telecom'.
+        Role: You are a polite Customer Support Agent for 'Jazz Telecom Pakistan'.
+        
         User Complaint: "{user_text}"
         Category: "{category}"
         User Mood: "{mood}"
-        Technical Solution: "{tech_solution}"
+        My Technical Solution: "{tech_solution}"
         
-        Task: Rewrite the Technical Solution in a natural, helpful, and professional tone.
-        - Keep it short (3 lines max).
-        - If mood is negative, show empathy.
-        - Use emojis 📡.
+        CRITICAL INSTRUCTIONS:
+        1. **DETECT LANGUAGE:** If the user writes in **Roman Urdu** (e.g., "Net nai chal raha", "Package lagana hai"), you MUST reply in **Roman Urdu**.
+        2. If the user writes in **English**, reply in **English**.
+        3. **TONE:** Be empathetic and professional. Use emojis 📡🛠️.
+        4. **TASK:** Rewrite 'My Technical Solution' in the detected language. Do not change the meaning. Keep it short (3 lines).
         """
         response = model.generate_content(prompt)
         return response.text
     except:
         return tech_solution
 
-# --- 3. DARK HACKER THEME CSS (WITH GRADIENT HEADER) 🎨 ---
+# --- 3. DARK HACKER THEME CSS 🎨 ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
         html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
-        
-        /* Deep Dark Background */
-        .stApp { 
-            background: radial-gradient(circle at 10% 20%, rgb(10, 20, 40) 0%, rgb(5, 10, 25) 90%); 
-            color: white; 
-        }
-        
-        /* Glass Sidebar */
-        [data-testid="stSidebar"] { 
-            background-color: rgba(255, 255, 255, 0.05); 
-            backdrop-filter: blur(10px); 
-            border-right: 1px solid rgba(255, 255, 255, 0.1); 
-        }
-        
-        #MainMenu {visibility: hidden;} 
-        footer {visibility: hidden;} 
-        
-        /* Glowing Cards */
-        .kpi-card { 
-            background: rgba(255, 255, 255, 0.05); 
-            border-radius: 16px; 
-            padding: 20px; 
-            text-align: center; 
-            backdrop-filter: blur(10px); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); 
-            transition: transform 0.3s ease; 
-        }
-        .kpi-card:hover { 
-            transform: translateY(-5px); 
-            border-color: #D32F2F; 
-            box-shadow: 0 0 20px rgba(211, 47, 47, 0.4); 
-        }
-        .kpi-value { 
-            font-size: 36px; 
-            font-weight: 700; 
-            background: -webkit-linear-gradient(#fff, #ccc); 
-            -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; 
-        }
-        .kpi-label { 
-            font-size: 12px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; 
-        }
-        
-        /* Neon Buttons */
-        .stButton>button { 
-            background: linear-gradient(90deg, #D32F2F, #880E4F); 
-            color: white; border: none; border-radius: 30px; 
-            padding: 12px 30px; font-weight: 600; transition: 0.4s; width: 100%; 
-        }
-        .stButton>button:hover { 
-            background: linear-gradient(90deg, #FF5252, #D32F2F); 
-            transform: scale(1.02); 
-            box-shadow: 0 0 15px rgba(255, 82, 82, 0.6); 
-        }
-        
-        /* Chat & Inputs */
-        .stChatMessage { background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; }
-        .stTextInput>div>div>input { background-color: rgba(255, 255, 255, 0.1); color: white; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }
+        .stApp { background: radial-gradient(circle at 10% 20%, rgb(10, 20, 40) 0%, rgb(5, 10, 25) 90%); color: white; }
+        [data-testid="stSidebar"] { background-color: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-right: 1px solid rgba(255, 255, 255, 0.1); }
+        #MainMenu {visibility: hidden;} footer {visibility: hidden;} 
+        .kpi-card { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
+        .kpi-value { font-size: 36px; font-weight: 700; background: -webkit-linear-gradient(#fff, #ccc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stButton>button { background: linear-gradient(90deg, #D32F2F, #880E4F); color: white; border-radius: 30px; border:none; }
+        .stChatMessage { background-color: rgba(255, 255, 255, 0.05); border-radius: 15px; }
+        .stTextInput>div>div>input { background-color: rgba(255, 255, 255, 0.1); color: white; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. SMART LOGIC ENGINE ---
+# --- 4. SUPER SMART LOGIC ENGINE (SAARAY SOLUTIONS) 🧠 ---
 def get_smart_solution(category, text):
     text = text.lower()
-    valid_keywords = ["net", "speed", "internet", "wifi", "router", "modem", "slow", "buffer", "lag", "connect", "bill", "balance", "money", "charge", "deduct", "tax", "refund", "payment", "load", "recharge", "sim", "call", "agent", "manager", "staff", "representative", "human", "puk", "block", "offer", "package", "signal", "range", "gaming", "ping", "light", "red", "history", "invoice", "service", "issue", "problem"]
-    if not any(word in text for word in valid_keywords): return None, "🤔 **Out of Scope:** I am trained only for Telecom issues."
+    
+    # Safety Guard
+    valid_keywords = ["net", "speed", "internet", "wifi", "router", "modem", "slow", "buffer", "lag", "connect", "bill", "balance", "money", "charge", "deduct", "tax", "refund", "payment", "load", "recharge", "sim", "call", "agent", "manager", "staff", "representative", "human", "puk", "block", "offer", "package", "signal", "range", "gaming", "ping", "light", "red", "history", "invoice", "service", "issue", "problem", "masla", "chal", "nahi", "raha", "paise", "kat", "gaye", "batti", "lal"]
+    
+    if not any(word in text for word in valid_keywords): 
+        return None, "🤔 **Out of Scope:** I am a Telecom AI trained only for Internet, Billing, and Sim issues."
 
+    # === INTERNET SOLUTIONS (DETAILED) ===
     if category == "Internet":
-        if any(x in text for x in ["red", "blink", "light"]): return "Critical", "🔴 **Hardware:** Check yellow fiber cable."
-        elif any(x in text for x in ["slow", "speed", "buffer"]): return "Bandwidth", "📉 **Speed:** Restart router (30s off/on)."
-        elif any(x in text for x in ["game", "ping"]): return "Gaming", "🎮 **Gaming:** Use LAN Cable."
-        elif any(x in text for x in ["password", "connect"]): return "Access", "🔑 **Login:** Reset WiFi password via App."
-        else: return "General", "🌐 **Connectivity:** Restart router."
-    elif category == "Billing":
-        if any(x in text for x in ["tax", "deduction"]): return "Tax", "💸 **Tax:** 15% Tax applies."
-        elif any(x in text for x in ["package", "offer"]): return "Subscription", "📦 **Offer:** Unsubscribe via *111#."
-        elif any(x in text for x in ["refund", "balance", "money"]): return "Refund", "💰 **Refund:** Checking history... Error balance reversed."
-        else: return "General Bill", "💳 **Billing:** Check usage history in App."
-    elif category == "Customer Care Call":
-        if any(x in text for x in ["sim", "block", "puk"]): return "Security", "🚫 **SIM:** Visit Franchise for Biometric."
-        else: return "Human Agent", "🎧 **Support:** Connecting to agent..."
-    return "General", "👉 Request forwarded to Tech Team."
+        if any(x in text for x in ["red", "blink", "light", "los", "alarm", "lal", "batti"]):
+            return "Critical", "🔴 **Hardware Issue:** Check yellow fiber cable behind router."
+        elif any(x in text for x in ["slow", "speed", "buffer", "lag", "ahista", "tez"]):
+            return "Bandwidth", "📉 **Speed Optimization:** 1. Disconnect extra devices. 2. Restart router (30s off/on)."
+        elif any(x in text for x in ["game", "ping", "latency", "pubg", "cod"]):
+            return "Gaming", "🎮 **Gaming Issue:** WiFi is unstable for gaming. Use a LAN Cable for 0% loss."
+        elif any(x in text for x in ["password", "connect", "access", "login", "change"]):
+            return "Access", "🔑 **WiFi Login:** You can reset your WiFi password via the Jazz World App."
+        elif any(x in text for x in ["range", "signal", "weak", "kam", "door"]):
+            return "Coverage", "📡 **Weak Signal:** 5GHz has short range. Switch to 2.4GHz."
+        elif any(x in text for x in ["4g", "lte", "data", "mobile"]):
+            return "Mobile Data", "📶 **4G Issue:** Restart phone and check APN settings (jazz.internet)."
+        else:
+            return "General", "🌐 **Connectivity:** Please restart your router. If issue persists, click 'Escalate'."
 
-# --- 5. DATA LOAD ---
-@st.cache_data
-def load_initial_data():
+    # === BILLING SOLUTIONS (DETAILED) ===
+    elif category == "Billing":
+        if any(x in text for x in ["tax", "deduction", "cut", "govt", "kat"]):
+            return "Tax", "💸 **Tax Info:** 15% Withholding Tax applies on every recharge."
+        elif any(x in text for x in ["package", "offer", "subscribe", "laga", "lagana"]):
+            return "Subscription", "📦 **Package Status:** Unsubscribe unwanted offers via *111#."
+        elif any(x in text for x in ["refund", "balance", "money", "return", "wapis", "double"]):
+            return "Refund", "💰 **Refund Claim:** Scanning history... If error found, balance will be reversed."
+        elif any(x in text for x in ["history", "bill", "invoice", "check"]):
+            return "History", "📅 **Usage History:** View last 6 months history in the App."
+        elif any(x in text for x in ["vas", "tune", "song", "game"]):
+            return "VAS", "🎵 **Value Added Services:** You are subscribed to VAS. Type 'UNSUB' to 6611."
+        else:
+            return "General Bill", "💳 **Billing Query:** Check your balance and history in the Jazz World App."
+
+    # === CALL CENTER SOLUTIONS (DETAILED) ===
+    elif category == "Customer Care Call":
+        if any(x in text for x in ["sim", "block", "puk", "band", "gum", "lock"]):
+            return "Security", "🚫 **SIM Security:** Visit Jazz Franchise with CNIC for Biometric verification."
+        elif any(x in text for x in ["mnp", "port", "switch", "network"]):
+            return "MNP", "📲 **Port In:** Visit Franchise to switch to Jazz network."
+        elif any(x in text for x in ["ownership", "transfer", "name"]):
+            return "Ownership", "📝 **Transfer:** Both parties must visit Franchise for biometric."
+        else:
+            return "Human Agent", "🎧 **Support:** Our lines are busy. Connecting to a human agent shortly."
+    
+    return "General", "👉 Request forwarded to Technical Team."
+
+# --- 5. DATA LOAD (SAFE & ROBUST) ---
+def load_data_fresh():
     try:
         df = pd.read_csv('Comcast.csv')
         if 'Customer Complaint' in df.columns:
             df['Customer Complaint'] = df['Customer Complaint'].str.replace('Comcast', 'Jazz', case=False)
-            df['Customer Complaint'] = df['Customer Complaint'].str.replace('comcast', 'Jazz', case=False)
             df = df.rename(columns={'Customer Complaint': 'text', 'Received Via': 'category', 'Status': 'status'})
             df = df.dropna(subset=['text', 'category'])
-        if 'Sentiment' not in df.columns: df['Sentiment'] = 'Neutral'
-        if 'Ticket_ID' not in df.columns: df['Ticket_ID'] = "N/A"
-        if 'Time' not in df.columns: df['Time'] = "N/A"
-        if 'Phone_Number' not in df.columns: df['Phone_Number'] = "N/A"
+        
+        # Backlog Logic
+        df['status'] = df['status'].replace({'Open': 'Escalated', 'Pending': 'Escalated'})
+        
+        for col in ['Sentiment', 'Ticket_ID', 'Time', 'Phone_Number', 'Data_Source']:
+            if col not in df.columns: df[col] = "N/A"
+            
+        df['Date_Parsed'] = pd.to_datetime(df['Time'], errors='coerce').dt.date
         return df
-    except: return pd.DataFrame(columns=['text', 'category', 'status', 'Sentiment', 'Ticket_ID', 'Time', 'Phone_Number'])
+    except: 
+        return pd.DataFrame(columns=['text', 'category', 'status', 'Sentiment', 'Ticket_ID', 'Time', 'Phone_Number', 'Data_Source'])
 
-if 'df' not in st.session_state: st.session_state['df'] = load_initial_data()
-df = st.session_state['df']
+if 'df' not in st.session_state: st.session_state['df'] = load_data_fresh()
 
-# --- 6. BIG DATA TRAINING ---
-big_training_data = [
-    {"text": "overcharged month", "category": "Billing", "status": "Open"},
-    {"text": "balance deducted", "category": "Billing", "status": "Open"},
-    {"text": "refund money", "category": "Billing", "status": "Open"},
-    {"text": "talk to human agent", "category": "Customer Care Call", "status": "Pending"},
-    {"text": "internet speed slow", "category": "Internet", "status": "Open"},
-    {"text": "router red light", "category": "Internet", "status": "Open"},
-    {"text": "sim blocked", "category": "Customer Care Call", "status": "Open"},
-    {"text": "pubg ping high", "category": "Internet", "status": "Open"},
-    {"text": "tax deduction", "category": "Billing", "status": "Solved"},
-    {"text": "check bill history", "category": "Billing", "status": "Open"},
-]
+# Session Counter
+if 'session_counter' not in st.session_state: st.session_state['session_counter'] = 0
+
+# --- 6. TRAINING ---
+big_training_data = [{"text": "net slow", "category": "Internet", "status": "Escalated"}, {"text": "bill wrong", "category": "Billing", "status": "Escalated"}, {"text": "call agent", "category": "Customer Care Call", "status": "Escalated"}]
 df_extra = pd.DataFrame(big_training_data * 50)
-df_train = pd.concat([df, df_extra], ignore_index=True)
+df_train = pd.concat([st.session_state['df'], df_extra], ignore_index=True)
 model = make_pipeline(CountVectorizer(), MultinomialNB())
 model.fit(df_train['text'], df_train['category'])
 
-# --- 7. SIDEBAR ---
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Jazz_logo.png/320px-Jazz_logo.png", width=140)
-st.sidebar.markdown("### 🧠 AI Status")
-if GEMINI_AVAILABLE: st.sidebar.success("✅ Gemini 2.0: Active")
-else: st.sidebar.warning("⚠️ Gemini: Inactive")
+# --- 7. SIDEBAR (PROFESSIONAL LOGO) ---
+# New 3D Robot Icon (Professional)
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/4712/4712027.png", width=140)
+# Gemini Status Hidden (As requested)
 st.sidebar.markdown("---")
 user_role = st.sidebar.radio("Select Mode:", ["Customer Portal", "Manager Dashboard"])
 st.sidebar.markdown("---")
 
 # --- 8. MAIN LOGIC ---
 if user_role == "Customer Portal":
-    # GRADIENT HEADER (ADVANCED LOOK)
-    st.markdown("""
-        <h1 style='text-align: center; background: -webkit-linear-gradient(#FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; font-size: 40px;'>
-        👋 Jazz Intelligent Support
-        </h1>
-        <p style='text-align: center; color: #aaa;'>Next-Gen AI Powered Assistance</p>
-    """, unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; background: -webkit-linear-gradient(#FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; font-size: 40px;'>👋 Jazz Intelligent Support</h1>", unsafe_allow_html=True)
     
     if 'customer_logged_in' not in st.session_state: st.session_state['customer_logged_in'] = False
     if not st.session_state['customer_logged_in']:
@@ -214,7 +188,7 @@ if user_role == "Customer Portal":
             st.session_state['customer_logged_in'] = False
             st.rerun()
         
-        # Voice Input
+        # Voice
         col_mic, _ = st.columns([1, 5])
         voice_text = None
         with col_mic:
@@ -240,43 +214,37 @@ if user_role == "Customer Portal":
             st.session_state.messages.append({"role": "user", "content": prompt})
             
             with st.chat_message("assistant"):
-                with st.spinner("AI Thinking..."):
+                with st.spinner("Thinking..."):
                     time.sleep(0.5)
-                    prompt_lower = prompt.lower()
-                    greetings = ["hello", "hi", "salam"]
-                    thanks = ["thank", "ok", "solved"]
+                    category = model.predict([prompt])[0]
+                    sol_type, raw_solution = get_smart_solution(category, prompt)
                     
-                    if any(x in prompt_lower for x in greetings):
-                        response = "👋 **Hello!** I am your Jazz AI Assistant. How can I help you?"
-                    elif any(x in prompt_lower for x in thanks):
-                        response = "🌟 **My Pleasure!**"
-                        st.balloons()
+                    if sol_type is None:
+                        final_response = raw_solution
+                        st.session_state['show_buttons'] = False
                     else:
-                        category = model.predict([prompt])[0]
-                        sol_type, raw_solution = get_smart_solution(category, prompt)
+                        blob = TextBlob(prompt)
+                        mood = "Negative" if blob.sentiment.polarity < -0.1 else "Neutral"
                         
-                        if sol_type is None:
-                            response = raw_solution
-                            st.session_state['show_buttons'] = False
-                        else:
-                            blob = TextBlob(prompt)
-                            mood = "Negative" if blob.sentiment.polarity < -0.1 else "Neutral"
-                            final_response = enhance_with_gemini(prompt, category, raw_solution, mood)
-                            st.session_state['show_buttons'] = True
-                            st.session_state['last_cat'] = category
-                            st.session_state['last_mood'] = mood
-                            st.session_state['last_txt'] = prompt
-                            response = final_response
+                        # GEMINI CALL (Roman Urdu Supported)
+                        final_response = enhance_with_gemini(prompt, category, raw_solution, mood)
+                        
+                        st.session_state['show_buttons'] = True
+                        st.session_state['last_cat'] = category
+                        st.session_state['last_mood'] = mood
+                        st.session_state['last_txt'] = prompt
                     
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    st.markdown(final_response)
+                    st.session_state.messages.append({"role": "assistant", "content": final_response})
 
         if st.session_state.get('show_buttons', False):
             c1, c2 = st.columns(2)
             if c1.button("✅ Solved"):
-                row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Solved', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': "Auto", 'Time': datetime.now().strftime("%Y-%m-%d %H:%M"), 'Phone_Number': st.session_state['phone']}
-                st.session_state['df'] = pd.concat([st.session_state['df'], pd.DataFrame([row])], ignore_index=True)
-                st.session_state['df'].to_csv('Comcast.csv', index=False)
+                row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Solved', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': "Auto", 'Time': datetime.now().strftime("%Y-%m-%d %H:%M"), 'Phone_Number': st.session_state['phone'], 'Data_Source': 'Live'}
+                current_df = load_data_fresh()
+                updated_df = pd.concat([current_df, pd.DataFrame([row])], ignore_index=True)
+                updated_df.to_csv('Comcast.csv', index=False)
+                st.session_state['session_counter'] += 1
                 st.success("Saved!")
                 st.session_state['show_buttons'] = False
                 st.rerun()
@@ -288,9 +256,11 @@ if user_role == "Customer Portal":
                 ph = st.text_input("Confirm Phone:", value=st.session_state.get('phone',''))
                 if st.form_submit_button("Send Request"):
                     tid = random.randint(1000,9999)
-                    row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Escalated', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': tid, 'Time': datetime.now().strftime("%Y-%m-%d %H:%M"), 'Phone_Number': ph}
-                    st.session_state['df'] = pd.concat([st.session_state['df'], pd.DataFrame([row])], ignore_index=True)
-                    st.session_state['df'].to_csv('Comcast.csv', index=False)
+                    row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Escalated', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': tid, 'Time': datetime.now().strftime("%Y-%m-%d %H:%M"), 'Phone_Number': ph, 'Data_Source': 'Live'}
+                    current_df = load_data_fresh()
+                    updated_df = pd.concat([current_df, pd.DataFrame([row])], ignore_index=True)
+                    updated_df.to_csv('Comcast.csv', index=False)
+                    st.session_state['session_counter'] += 1
                     st.success(f"Ticket #{tid} Escalated!")
                     st.session_state['show_buttons'] = False
                     st.session_state['show_form'] = False
@@ -299,43 +269,101 @@ if user_role == "Customer Portal":
 elif user_role == "Manager Dashboard":
     st.sidebar.warning("🔒 Admin Area")
     if st.sidebar.text_input("Password:", type="password") == "admin123":
-        st.markdown("""
-            <h2 style='background: -webkit-linear-gradient(#FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;'>
-            📊 Executive Analytics
-            </h2>""", unsafe_allow_html=True)
+        st.markdown("""<h2 style='background: -webkit-linear-gradient(#FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;'>📊 Executive Analytics</h2>""", unsafe_allow_html=True)
         
-        filter_stat = st.sidebar.multiselect("Filter:", options=df['status'].unique(), default=df['status'].unique())
-        df_view = df[df['status'].isin(filter_stat)]
+        col_search, col_refresh = st.columns([3, 1])
+        with col_search:
+            search_term = st.text_input("🔍 Global Search (Ticket, Phone, Name)...", placeholder="Search...")
+        with col_refresh:
+            if st.button("🔄 Refresh Feed"): st.rerun()
+
+        df_full = load_data_fresh()
+        
+        # Date Filter
+        st.sidebar.markdown("### 📅 Time Filter")
+        filter_mode = st.sidebar.radio("View Data:", ["All Time", "Specific Date"])
+        selected_date = None
+        if filter_mode == "Specific Date":
+            selected_date = st.sidebar.date_input("Select Date:", datetime.now())
+            if 'Date_Parsed' in df_full.columns:
+                df_view = df_full[df_full['Date_Parsed'] == selected_date]
+            else: df_view = df_full
+        else:
+            df_view = df_full
+
+        if search_term:
+            df_view = df_view[df_view.astype(str).apply(lambda x: x.str.contains(search_term, case=False)).any(axis=1)]
+            st.info(f"Search Results: {len(df_view)}")
+
+        # KPIs
+        new_today = st.session_state['session_counter']
+        escalated = len(df_full[df_full['status'] == 'Escalated'])
+        solved = len(df_view[df_view['status'].isin(['Solved','Closed'])])
+        total = len(df_view)
+        
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f"<div class='kpi-card'><div class='kpi-value'>{len(df_view)}</div><div class='kpi-label'>Total</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#FF5252;'>{len(df_view[df_view['category'].str.contains('Internet')])}</div><div class='kpi-label'>Net</div></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#69F0AE;'>{len(df_view[df_view['status'].isin(['Solved','Closed'])])}</div><div class='kpi-label'>Solved</div></div>", unsafe_allow_html=True)
-        c4.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#FFAB40;'>{len(df_view[df_view['status']=='Escalated'])}</div><div class='kpi-label'>Escalated</div></div>", unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        g1, g2 = st.columns(2)
-        with g1:
-            v = df_view['category'].value_counts().reset_index()
-            v.columns=['Category','Count']
-            st.plotly_chart(px.bar(v, x='Category', y='Count', color='Category', template="plotly_dark"), use_container_width=True)
-        with g2:
-            if 'Sentiment' in df_view.columns:
-                s = df_view['Sentiment'].value_counts().reset_index()
-                s.columns=['Mood','Count']
-                st.plotly_chart(px.pie(s, names='Mood', values='Count', color='Mood', color_discrete_map={"Negative":"#FF5252", "Positive":"#69F0AE", "Neutral":"#448AFF"}, template="plotly_dark"), use_container_width=True)
+        c1.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#FF5252;'>{new_today}</div><div class='kpi-label'>New Today</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#FFAB40;'>{escalated}</div><div class='kpi-label'>Backlog</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='kpi-card'><div class='kpi-value' style='color:#69F0AE;'>{solved}</div><div class='kpi-label'>Solved</div></div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='kpi-card'><div class='kpi-value'>{total}</div><div class='kpi-label'>Total DB</div></div>", unsafe_allow_html=True)
         
         st.markdown("---")
-        if not df_view.empty:
-            st.subheader("☁️ Keyword Cloud")
-            text = " ".join(title for title in df_view.text.astype(str))
-            wc = WordCloud(width=800, height=300, background_color='#0e1117', colormap='Reds').generate(text)
-            fig, ax = plt.subplots(figsize=(10, 5), facecolor='#0e1117')
-            ax.imshow(wc, interpolation='bilinear')
-            ax.axis("off")
-            st.pyplot(fig)
+        
+        # Action Table
+        st.subheader("🔴 Priority Action Queue")
+        pending_df = df_view if search_term else df_full[df_full['status'] == 'Escalated'].copy()
+        
+        if not pending_df.empty:
+            priority_map = {'Negative': 0, 'Neutral': 1, 'Positive': 2}
+            pending_df['priority'] = pending_df['Sentiment'].map(priority_map).fillna(1)
+            pending_df = pending_df.sort_values(by=['priority', 'Time'], ascending=[True, False])
             
-        csv = df_view.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV", csv, "Jazz_Report.csv", "text/csv")
-        st.dataframe(df.tail(10))
+            for index, row in pending_df.head(10).iterrows():
+                with st.container():
+                    c1, c2, c3 = st.columns([1, 4, 1])
+                    mood_icon = "😡" if row['Sentiment'] == 'Negative' else "😐"
+                    c1.warning(f"#{row.get('Ticket_ID','Old')}")
+                    c2.info(f"{mood_icon} **{row['category']}**: {row['text']}\n🕒 {row.get('Time','N/A')} | 📞 {row.get('Phone_Number','N/A')}")
+                    
+                    if c3.button("✅ Resolve", key=f"btn_{index}"):
+                        full_df = pd.read_csv('Comcast.csv')
+                        text_col = 'text' if 'text' in full_df.columns else 'Customer Complaint'
+                        status_col = 'status' if 'status' in full_df.columns else 'Status'
+                        mask = (full_df[text_col] == row['text'])
+                        if mask.any():
+                            idx = full_df[mask].index[-1]
+                            full_df.at[idx, status_col] = 'Solved'
+                            full_df.to_csv('Comcast.csv', index=False)
+                            st.success("Resolved!")
+                            time.sleep(0.5)
+                            st.rerun()
+                    st.markdown("---")
+        else:
+            st.success("🎉 Inbox Zero!")
+
+        with st.expander("📂 View Analytics Graphs"):
+             g1, g2 = st.columns(2)
+             with g1:
+                 v = df_view['category'].value_counts().reset_index()
+                 v.columns=['Category','Count']
+                 st.plotly_chart(px.pie(v, names='Category', values='Count', title="Category Distribution", template="plotly_dark"), use_container_width=True)
+             with g2:
+                 if 'Sentiment' in df_view.columns:
+                    s = df_view['Sentiment'].value_counts().reset_index()
+                    s.columns=['Mood','Count']
+                    st.plotly_chart(px.pie(s, names='Mood', values='Count', hole=0.5, title="Mood Radar", color='Mood', color_discrete_map={"Negative":"#FF5252", "Positive":"#69F0AE", "Neutral":"#448AFF"}, template="plotly_dark"), use_container_width=True)
+             
+             if not df_view.empty:
+                st.subheader("☁️ Keyword Cloud")
+                text = " ".join(title for title in df_view.text.astype(str))
+                wc = WordCloud(width=800, height=300, background_color='#0e1117', colormap='Reds').generate(text)
+                fig, ax = plt.subplots(figsize=(10, 5), facecolor='#0e1117')
+                ax.imshow(wc, interpolation='bilinear')
+                ax.axis("off")
+                st.pyplot(fig)
+
+             csv = df_view.to_csv(index=False).encode('utf-8')
+             st.download_button("📥 Download Report", csv, "Jazz_Report.csv", "text/csv")
+
     else:
         st.error("🚫 Access Denied")

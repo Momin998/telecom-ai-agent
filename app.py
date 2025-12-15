@@ -34,7 +34,7 @@ except:
 def enhance_with_gemini(user_text, category, tech_solution, mood):
     if not GEMINI_AVAILABLE: return tech_solution 
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-flash-latest')
         
         # --- ROMAN URDU DETECTION PROMPT ---
         prompt = f"""
@@ -56,22 +56,58 @@ def enhance_with_gemini(user_text, category, tech_solution, mood):
     except:
         return tech_solution
 
-# --- 3. DARK HACKER THEME CSS 🎨 ---
+# --- 3. DARK HACKER THEME CSS (FINAL FIX) 🎨 ---
 st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-        html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
-        .stApp { background: radial-gradient(circle at 10% 20%, rgb(10, 20, 40) 0%, rgb(5, 10, 25) 90%); color: white; }
-        [data-testid="stSidebar"] { background-color: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-right: 1px solid rgba(255, 255, 255, 0.1); }
-        #MainMenu {visibility: hidden;} footer {visibility: hidden;} 
-        .kpi-card { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
-        .kpi-value { font-size: 36px; font-weight: 700; background: -webkit-linear-gradient(#fff, #ccc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stButton>button { background: linear-gradient(90deg, #D32F2F, #880E4F); color: white; border-radius: 30px; border:none; }
-        .stChatMessage { background-color: rgba(255, 255, 255, 0.05); border-radius: 15px; }
-        .stTextInput>div>div>input { background-color: rgba(255, 255, 255, 0.1); color: white; border-radius: 10px; }
+        /* 1. Main Background (Global Dark) - Wohi Same Design */
+        .stApp {
+            background: radial-gradient(circle at 10% 20%, rgb(10, 20, 40) 0%, rgb(5, 10, 25) 90%);
+            color: white !important;
+        }
+
+        /* 2. FORCE TEXT WHITE (Taake white background par ghaib na ho) */
+        html, body, [class*="css"], .stMarkdown, .stText, p, h1, h2, h3, label {
+            color: #FFFFFF !important;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* 3. INPUT BOX FIX (Sabse Zaroori) 
+           Yeh mobile ko force karega ke Dabba Kala rakho aur Text Safed.
+        */
+        .stTextInput > div > div {
+            background-color: #1E1E2E !important; /* Dark Background Fixed */
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* User jo likh raha hai wo safed rang ka ho */
+        .stTextInput input {
+            color: #FFFFFF !important;
+            background-color: transparent !important; /* Double Check */
+        }
+        
+        /* 4. Sidebar Glass Effect */
+        [data-testid="stSidebar"] {
+            background-color: rgba(20, 20, 30, 0.95) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 5. Chat Messages Background */
+        .stChatMessage {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 6. Buttons Styling */
+        .stButton>button {
+            background: linear-gradient(90deg, #D32F2F, #880E4F);
+            color: white !important;
+            border-radius: 30px;
+            border: none;
+            padding: 10px 25px;
+        }
     </style>
 """, unsafe_allow_html=True)
-
 # --- 4. SUPER SMART LOGIC ENGINE (SAARAY SOLUTIONS) 🧠 ---
 def get_smart_solution(category, text):
     text = text.lower()
@@ -366,4 +402,5 @@ elif user_role == "Manager Dashboard":
              st.download_button("📥 Download Report", csv, "Jazz_Report.csv", "text/csv")
 
     else:
+
         st.error("🚫 Access Denied")

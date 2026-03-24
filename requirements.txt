@@ -5,5 +5,5 @@ scikit-learn
 textblob
 wordcloud
 matplotlib
-SpeechRecognition
 google-generativeai
+supabase

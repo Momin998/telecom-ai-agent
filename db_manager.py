@@ -42,13 +42,24 @@ def load_data_fresh():
         return pd.DataFrame(columns=['text', 'category', 'status', 'Sentiment', 'Ticket_ID', 'Time', 'Phone_Number', 'Data_Source'])
 
 def save_ticket(row_dict):
-    """Naya ticket real-time Cloud DB mein save karta hai."""
+    """Naya ticket real-time Cloud DB mein save karta hai (WITH DEBUGGING)."""
     try:
-        # Supabase mein directly dictionary insert karna
-        supabase.table("tickets").insert(row_dict).execute()
+        # User input aur dictionary screen par print karna (Dost ka Step 5)
+        st.info("🔍 DEBUG - Bheja gaya Data:")
+        st.write(row_dict)
+
+        # Supabase mein insert karna (Dost ka Step 1)
+        response = supabase.table("tickets").insert(row_dict).execute()
+        
+        # Response check karna aur screen par dikhana
+        st.success("✅ DEBUG - Supabase Response:")
+        st.write(response)
+        
         return True
+        
     except Exception as e:
-        print(f"Database Save Error: {e}")
+        # Agar koi data type ya connection ka error ho toh laal rang mein dikhaye
+        st.error(f"❌ DEBUG - Insert Failed Error: {str(e)}")
         return False
 
 def resolve_ticket(ticket_text):

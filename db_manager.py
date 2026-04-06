@@ -67,11 +67,11 @@ def save_ticket(row_dict):
     except Exception as e:
         print(f"Database Save Error: {e}")
         return False
-
-def resolve_ticket(ticket_text):
-    """Manager Dashboard se ticket ko Supabase mein Solved mark karta hai."""
+def resolve_ticket(ticket_id):
+    """Manager Dashboard se ticket ko uske Unique ID se Supabase mein Solved mark karta hai."""
     try:
-        supabase.table("tickets").update({"status": "Solved"}).eq("text", ticket_text).execute()
+        # 🔥 THE FIX: 'text' ki bajaye 'ticket_id' column use kiya, aur usay string mein bheja
+        supabase.table("tickets").update({"status": "Solved"}).eq("ticket_id", str(ticket_id)).execute()
         return True
     except Exception as e:
         print(f"Database Update Error: {e}")

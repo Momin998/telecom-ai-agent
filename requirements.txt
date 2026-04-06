@@ -1,9 +1,8 @@
 streamlit
 pandas
 plotly
-scikit-learn
-textblob
 wordcloud
 matplotlib
+scikit-learn
 google-generativeai
 supabase

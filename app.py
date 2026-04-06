@@ -5,7 +5,7 @@ import plotly.express as px
 import time
 import random
 from datetime import datetime, timedelta
-from textblob import TextBlob
+# TextBlob yahan se hta diya gaya hai
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import os
@@ -13,7 +13,8 @@ import os
 # ---> 1. MODULES IMPORT (100% Intact Backend)
 from db_manager import load_data_fresh, save_ticket, resolve_ticket 
 from ml_engine import train_bilingual_model
-from ai_service import get_gemini_response 
+# ✅ CHANGE 1: Naya fallback function import kiya gaya
+from ai_service import get_gemini_response, fallback_intent_classifier 
 
 # --- 2. MODEL INITIALIZATION (CACHED) ---
 @st.cache_resource
@@ -199,39 +200,99 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 5. LOGIC ENGINE (If-Else) ---
-def get_smart_solution(category, text):
+# --- NEW: PROFESSIONAL BILINGUAL SENTIMENT ENGINE ---
+def analyze_urdu_mood(text):
+    """Bilingual Weighted Lexicon-Based Sentiment Analysis for Roman Urdu & English"""
     text = text.lower()
-    valid_keywords = ["net", "speed", "internet", "wifi", "router", "modem", "slow", "buffer", "lag", "connect", "bill", "balance", "money", "charge", "deduct", "tax", "refund", "payment", "load", "recharge", "sim", "call", "agent", "manager", "staff", "representative", "human", "puk", "block", "offer", "package", "signal", "range", "gaming", "ping", "light", "red", "history", "invoice", "service", "issue", "problem", "masla", "chal", "nahi", "raha", "paise", "kat", "gaye", "batti", "lal", "ahista", "aista", "dropping", "disconnects", "dead", "break", "working", "stuck", "rha", "automatic", "bina", "incorrect", "extra", "double", "zyada", "wapis", "karo", "vas", "tune", "song", "laga", "error", "check", "unwanted", "account", "meri", "band", "lock", "need", "talk", "center", "apne", "naam", "karni", "ownership", "transfer", "biometric", "mnp", "port", "network", "change", "dusri", "franchise", "location", "address", "batao", "nearest", "care", "gum", "duplicate", "nikalni", "escalate", "complaint", "khatam", "charges", "bundle", "detail", "thumb", "lost", "kahan"]
+    score = 0
     
+    # Negative Dictionary with Intensity Weights (UPDATED)
+    neg_words = {
+        "bakwas": -3, "ghatiya": -3, "worst": -3, "angry": -3, "fuzool": -2, "bekar": -2, 
+        "terrible": -2, "kharab": -1, "masla": -1, "slow": -1, "bad": -1, "issue": -1, 
+        "nahi": -1, "kat": -1, "dead": -2, "stuck": -1, "dropping": -1,
+        "ganda": -2, "farigh": -2, "farig": -2, "bura": -2, "raddi": -2, "thaka": -1, "masle": -1
+    }
+    
+    # Positive Dictionary with Intensity Weights
+    pos_words = {
+        "zabardast": 3, "excellent": 3, "best": 3, "behtareen": 2, "acha": 2, 
+        "good": 2, "great": 2, "fast": 1, "thanks": 1, "shukriya": 1, "fine": 1
+    }
+    
+    # Text ko words mein todna aur scan karna
+    words = text.split()
+    for word in words:
+        if word in neg_words:
+            score += neg_words[word]
+        elif word in pos_words:
+            score += pos_words[word]
+            
+    # Score ke hisab se final decision
+    if score < 0: return "Negative"
+    elif score > 0: return "Positive"
+    else: return "Neutral"
+
+# --- 5. LOGIC ENGINE (ENTERPRISE KNOWLEDGE BASE / MINI-RAG) ---
+def get_smart_solution(category, text):
+    """If-Else hta kar Dictionary-based Solution Retrieval lagaya gaya hai"""
+    text = text.lower()
+    
+    # Professional Data Structure for Company Policy
+    KNOWLEDGE_BASE = {
+        "Internet": {
+            "Critical": {"keys": ["red", "blink", "light", "los", "alarm", "lal", "batti"], "ans": "🔴 **Hardware Issue:** Check yellow fiber cable behind router."},
+            "Bandwidth": {"keys": ["slow", "speed", "buffer", "lag", "ahista", "aista", "tez", "stuck", "dead", "crawling"], "ans": "📉 **Speed Optimization:** 1. Disconnect extra devices. 2. Restart router (30s off/on)."},
+            "Gaming": {"keys": ["game", "ping", "latency", "pubg", "cod"], "ans": "🎮 **Gaming Issue:** WiFi is unstable for gaming. Use a LAN Cable for 0% loss."},
+            "Access": {"keys": ["password", "connect", "access", "login", "change", "working"], "ans": "🔑 **WiFi Login:** You can reset your WiFi password via the Jazz World App."},
+            "Coverage": {"keys": ["range", "signal", "weak", "kam", "door", "dropping", "disconnects", "drop"], "ans": "📡 **Weak Signal:** 5GHz has short range. Switch to 2.4GHz."},
+            "Mobile Data": {"keys": ["4g", "lte", "data", "mobile", "3g"], "ans": "📶 **4G Issue:** Restart phone and check APN settings (jazz.internet)."},
+            
+        },
+        "Billing": {
+            "Tax": {"keys": ["tax", "deduction", "cut", "govt", "kat", "automatic", "extra", "charges"], "ans": "💸 **Tax Info:** 15% Withholding Tax applies on every recharge."},
+            "Subscription": {"keys": ["package", "offer", "subscribe", "laga", "lagana", "unwanted", "bundle"], "ans": "📦 **Package Status:** Unsubscribe unwanted offers via *111#."},
+            "Refund": {"keys": ["refund", "balance", "money", "return", "wapis", "double", "incorrect", "wrong"], "ans": "💰 **Refund Claim:** Scanning history... If error found, balance will be reversed."},
+            "History": {"keys": ["history", "bill", "invoice", "check", "account", "detail"], "ans": "📅 **Usage History:** View last 6 months history in the App."},
+            "VAS": {"keys": ["vas", "tune", "song", "game", "caller"], "ans": "🎵 **Value Added Services:** You are subscribed to VAS. Type 'UNSUB' to 6611."},
+            
+        },
+        "Customer Care Call": {
+            "Security": {"keys": ["sim", "block", "puk", "band", "gum", "lock", "duplicate", "nikalni", "lost"], "ans": "🚫 **SIM Security:** Visit Jazz Franchise with CNIC for Biometric verification."},
+            "MNP": {"keys": ["mnp", "port", "switch", "network", "dusri", "change"], "ans": "📲 **Port In:** Visit Franchise to switch to Jazz network."},
+            "Ownership": {"keys": ["ownership", "transfer", "name", "naam", "apne", "biometric", "thumb"], "ans": "📝 **Transfer:** Both parties must visit Franchise for biometric."},
+            "Location": {"keys": ["franchise", "location", "address", "batao", "nearest", "kahan"], "ans": "📍 **Franchise Locator:** Find nearest franchise on Google Maps."},
+            
+        }
+    }
+
+    # Automatically generate valid_keywords from the Knowledge Base so we don't repeat code
+    all_keys = []
+    for cat, items in KNOWLEDGE_BASE.items():
+        for key_type, data in items.items():
+            if key_type != "default":
+                all_keys.extend(data["keys"])
+                
+    base_words = ["net", "internet", "wifi", "router", "modem", "bill", "balance", "money", "sim", "call", "agent", "manager", "staff", "representative", "human", "service", "issue", "problem", "masla", "chal", "nahi", "raha", "ganda"]
+    valid_keywords = set(all_keys + base_words)
+
+    # 1. Out of Scope Check
     if not any(word in text for word in valid_keywords): 
         return None, "🤔 **Out of Scope:** I am a Telecom AI trained only for Internet, Billing, and Sim issues."
 
-    if category == "Internet":
-        if any(x in text for x in ["red", "blink", "light", "los", "alarm", "lal", "batti"]): return "Critical", "🔴 **Hardware Issue:** Check yellow fiber cable behind router."
-        elif any(x in text for x in ["slow", "speed", "buffer", "lag", "ahista", "aista", "tez", "stuck", "dead", "crawling"]): return "Bandwidth", "📉 **Speed Optimization:** 1. Disconnect extra devices. 2. Restart router (30s off/on)."
-        elif any(x in text for x in ["game", "ping", "latency", "pubg", "cod"]): return "Gaming", "🎮 **Gaming Issue:** WiFi is unstable for gaming. Use a LAN Cable for 0% loss."
-        elif any(x in text for x in ["password", "connect", "access", "login", "change", "working"]): return "Access", "🔑 **WiFi Login:** You can reset your WiFi password via the Jazz World App."
-        elif any(x in text for x in ["range", "signal", "weak", "kam", "door", "dropping", "disconnects", "drop"]): return "Coverage", "📡 **Weak Signal:** 5GHz has short range. Switch to 2.4GHz."
-        elif any(x in text for x in ["4g", "lte", "data", "mobile", "3g"]): return "Mobile Data", "📶 **4G Issue:** Restart phone and check APN settings (jazz.internet)."
-        else: return "General", "🌐 **Connectivity:** Please restart your router."
-
-    elif category == "Billing":
-        if any(x in text for x in ["tax", "deduction", "cut", "govt", "kat", "automatic", "extra", "charges"]): return "Tax", "💸 **Tax Info:** 15% Withholding Tax applies on every recharge."
-        elif any(x in text for x in ["package", "offer", "subscribe", "laga", "lagana", "unwanted", "bundle"]): return "Subscription", "📦 **Package Status:** Unsubscribe unwanted offers via *111#."
-        elif any(x in text for x in ["refund", "balance", "money", "return", "wapis", "double", "incorrect", "wrong"]): return "Refund", "💰 **Refund Claim:** Scanning history... If error found, balance will be reversed."
-        elif any(x in text for x in ["history", "bill", "invoice", "check", "account", "detail"]): return "History", "📅 **Usage History:** View last 6 months history in the App."
-        elif any(x in text for x in ["vas", "tune", "song", "game", "caller"]): return "VAS", "🎵 **Value Added Services:** You are subscribed to VAS. Type 'UNSUB' to 6611."
-        else: return "General Bill", "💳 **Billing Query:** Check your balance and history in the Jazz World App."
-
-    elif category == "Customer Care Call":
-        if any(x in text for x in ["sim", "block", "puk", "band", "gum", "lock", "duplicate", "nikalni", "lost"]): return "Security", "🚫 **SIM Security:** Visit Jazz Franchise with CNIC for Biometric verification."
-        elif any(x in text for x in ["mnp", "port", "switch", "network", "dusri", "change"]): return "MNP", "📲 **Port In:** Visit Franchise to switch to Jazz network."
-        elif any(x in text for x in ["ownership", "transfer", "name", "naam", "apne", "biometric", "thumb"]): return "Ownership", "📝 **Transfer:** Both parties must visit Franchise for biometric."
-        elif any(x in text for x in ["franchise", "location", "address", "batao", "nearest", "kahan"]): return "Location", "📍 **Franchise Locator:** Find nearest franchise on Google Maps."
-        else: return "Human Agent", "🎧 **Support:** Connecting to a human agent shortly."
-    
-    return "General", "👉 Request forwarded to Technical Team."
+    # 2. Smart Retrieval Loop (Finds the solution automatically without if-else)
+    if category in KNOWLEDGE_BASE:
+        category_solutions = KNOWLEDGE_BASE[category]
+        for sol_type, data in category_solutions.items():
+            if sol_type != "default":
+                if any(keyword in text for keyword in data["keys"]):
+                    return sol_type, data["ans"]
+                    
+        # ---> THE FIX: SAFE FALLBACK (No more wrong default answers) <---
+        # Agar koi specific keyword match na ho, toh tukka lagane ke bajaye safai se mana kar do
+        return None, "🤖 **Clarification Needed:** Maazrat, main aapka masla poori tarah samajh nahi saka. Baraye meharbani apne masle ko thora wazeh (clear) alfaz mein dobara likhain, taake main theek se aapki rehnumai kar sakun."
+        
+    return None, "🤖 **Clarification Needed:** System is waqt aapki baat samajhne se qasir hai. Baraye meharbani dobara koshish karein."
 
 # --- 6. SESSION STATE ---
 if 'df' not in st.session_state: st.session_state['df'] = load_data_fresh()
@@ -278,15 +339,24 @@ if user_role == "Customer Portal":
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
                     time.sleep(0.5)
-                    category = model.predict([prompt])[0]
+                    
+                    # ✅ CHANGE 2: Yahan Confidence Score aur Fallback lagaya gaya hai
+                    prediction_probs = model.predict_proba([prompt])[0]
+                    max_prob = max(prediction_probs)
+                    category = model.classes_[prediction_probs.argmax()]
+                    
+                    if max_prob < 0.60:
+                        category = fallback_intent_classifier(prompt)
+                    # -----------------------------------------------------------
+                    
                     sol_type, raw_solution = get_smart_solution(category, prompt)
                     
                     if sol_type is None:
                         final_response = raw_solution
                         st.session_state['show_buttons'] = False
                     else:
-                        blob = TextBlob(prompt)
-                        mood = "Negative" if blob.sentiment.polarity < -0.1 else "Neutral"
+                        # NEW: Calling the custom bilingual sentiment function instead of TextBlob
+                        mood = analyze_urdu_mood(prompt)
                         # AI Service Call
                         final_response = get_gemini_response(prompt, category, raw_solution, mood)
                         
@@ -383,7 +453,7 @@ elif user_role == "Manager Dashboard":
                     c2.info(f"{mood_icon} **{row['category']}** | Mood: {row.get('Sentiment')}\n\n{row['text']}")
                     
                     if c3.button("✅ Resolve", key=f"btn_{index}"):
-                        resolve_ticket(row['text'])
+                        resolve_ticket(row['Ticket_ID'])
                         st.success("Resolved!")
                         time.sleep(0.5)
                         st.rerun()

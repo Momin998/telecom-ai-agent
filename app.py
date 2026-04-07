@@ -450,7 +450,8 @@ elif user_role == "Manager Dashboard":
                     c1.warning(f"#{row.get('Ticket_ID','Old')}")
                     
                     mood_icon = "😡" if row.get('Sentiment') == 'Negative' else ("😊" if row.get('Sentiment') == 'Positive' else "😐")
-                    c2.info(f"{mood_icon} **{row['category']}** | Mood: {row.get('Sentiment')}\n\n{row['text']}")
+                    # ✅ YAHAN PHONE NUMBER WALI LINE UPDATE HO GAYI HAI ✅
+                    c2.info(f"{mood_icon} **{row['category']}** | 📱 Phone: **{row.get('Phone_Number', 'Not Provided')}** | Mood: {row.get('Sentiment')}\n\n{row['text']}")
                     
                     if c3.button("✅ Resolve", key=f"btn_{index}"):
                         resolve_ticket(row['Ticket_ID'])

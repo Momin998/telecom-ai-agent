@@ -76,3 +76,32 @@ def resolve_ticket(ticket_id):
     except Exception as e:
         print(f"Database Update Error: {e}")
         return False
+    
+    # --- NAYE AUTHENTICATION FUNCTIONS (Add at the very bottom of db_manager.py) ---
+
+def authenticate_customer(phone, password):
+    """Checks if the phone and password match the Supabase customers table."""
+    try:
+        response = supabase.table('customers').select('*').eq('phone_number', phone).eq('password', password).execute()
+        # Agar data list mein koi record aya hai, matlab user original hai
+        if len(response.data) > 0:
+            return True
+        return False
+    except Exception as e:
+        print(f"Auth Error: {e}")
+        return False
+
+def register_new_customer(phone, password):
+    """Admin function to register a new customer in Supabase."""
+    try:
+        # Pehle check karein ke is number ka account pehle se toh nahi bana hua
+        check = supabase.table('customers').select('*').eq('phone_number', phone).execute()
+        if len(check.data) > 0:
+            return "Exists"
+        
+        # Agar naya user hai toh database mein save kar do
+        data = supabase.table('customers').insert({"phone_number": phone, "password": password}).execute()
+        return "Success"
+    except Exception as e:
+        print(f"Register Error: {e}")
+        return "Error"

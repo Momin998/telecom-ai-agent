@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 import os
 
 # ---> 1. MODULES IMPORT (100% Intact Backend)
-from db_manager import load_data_fresh, save_ticket, resolve_ticket 
+# ✅ UPDATE: Naye authentication functions import kiye
+from db_manager import load_data_fresh, save_ticket, resolve_ticket, authenticate_customer, register_new_customer 
 from ml_engine import train_bilingual_model
-# ✅ CHANGE 1: Naya fallback function import kiya gaya
-from ai_service import get_gemini_response, fallback_intent_classifier 
+from ai_service import get_rag_solution, fallback_intent_classifier 
 
 # --- 2. MODEL INITIALIZATION (CACHED) ---
 @st.cache_resource
@@ -62,7 +62,7 @@ st.markdown("""
         border-radius: 8px !important;
         color: white !important;
         padding: 8px !important;
-        caret-color: #38bdf8 !important; /* Sidebar blue blinking cursor */
+        caret-color: #38bdf8 !important;
     }
     [data-testid="stSidebar"] .stTextInput input:focus {
         border: 1px solid #DD2476 !important;
@@ -95,14 +95,13 @@ st.markdown("""
     /* 🔴 THE FIX: MAIN INPUT BOXES & BLINKING CURSOR 🔴 */
     .stTextInput input, .stChatInput textarea, .stChatInputContainer {
         background: #1e293b !important;
-        border: 1px solid #475569 !important; /* Visible default border */
+        border: 1px solid #475569 !important;
         border-radius: 10px !important;
         color: white !important;
         padding: 10px !important;
-        caret-color: #DD2476 !important; /* Jazz Pink Blinking Cursor */
+        caret-color: #DD2476 !important;
     }
     
-    /* Placeholders clearly visible */
     .stTextInput input::placeholder, .stChatInput textarea::placeholder {
         color: #64748b !important;
     }
@@ -120,7 +119,6 @@ st.markdown("""
         border: 1px solid #334155 !important;
         margin-bottom: 15px;
     }
-    /* 🔴 THE FIX: CHAT TEXT BRIGHT WHITE & BOLD 🔴 */
     [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] span, [data-testid="stChatMessage"] div {
         color: #ffffff !important;
         font-weight: 500 !important;
@@ -149,7 +147,6 @@ st.markdown("""
         box-shadow: 0 8px 20px rgba(221,36,118,0.4) !important;
     }
     
-    /* 🔴 THE FIX: READABLE COMPLAINTS & TICKET BOXES (FOR BOTH THEMES) 🔴 */
     [data-testid="stAlert"] {
         background-color: #1e293b !important;
         border: 1px solid #334155 !important;
@@ -160,7 +157,6 @@ st.markdown("""
         font-weight: 500 !important;
     }
 
-    /* 🔴 THE FIX: DOWNLOAD BUTTON BACKGROUND AND TEXT 🔴 */
     [data-testid="stDownloadButton"] button, [data-testid="stDownloadButton"] button * {
         background: linear-gradient(135deg, #DD2476, #FF512F) !important;
         border: none !important; 
@@ -176,22 +172,22 @@ st.markdown("""
     .stDeployButton {display: none !important;}
     [data-testid="stHeader"] {display: none !important;}
     
-    /* 🔴 THE FIX: METRIC CARDS (EXECUTIVE ANALYTICS) 🔴 */
+    /* METRIC CARDS */
     [data-testid="metric-container"] {
         background: #1e293b !important;
         border: 1px solid #334155 !important;
-        border-left: 5px solid #DD2476 !important; /* Pink Accent Line */
+        border-left: 5px solid #DD2476 !important; 
         padding: 15px !important;
         border-radius: 10px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
     }
     [data-testid="stMetricValue"] {
-        color: #f8fafc !important; /* Bright White Numbers */
+        color: #f8fafc !important; 
         font-size: 2.2rem !important;
         font-weight: 900 !important;
     }
     [data-testid="stMetricLabel"] {
-        color: #38bdf8 !important; /* Cyber Blue Labels */
+        color: #38bdf8 !important; 
         font-size: 1rem !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
@@ -202,25 +198,18 @@ st.markdown("""
 
 # --- NEW: PROFESSIONAL BILINGUAL SENTIMENT ENGINE ---
 def analyze_urdu_mood(text):
-    """Bilingual Weighted Lexicon-Based Sentiment Analysis for Roman Urdu & English"""
     text = text.lower()
     score = 0
-    
-    # Negative Dictionary with Intensity Weights (UPDATED)
     neg_words = {
         "bakwas": -3, "ghatiya": -3, "worst": -3, "angry": -3, "fuzool": -2, "bekar": -2, 
         "terrible": -2, "kharab": -1, "masla": -1, "slow": -1, "bad": -1, "issue": -1, 
         "nahi": -1, "kat": -1, "dead": -2, "stuck": -1, "dropping": -1,
         "ganda": -2, "farigh": -2, "farig": -2, "bura": -2, "raddi": -2, "thaka": -1, "masle": -1
     }
-    
-    # Positive Dictionary with Intensity Weights
     pos_words = {
         "zabardast": 3, "excellent": 3, "best": 3, "behtareen": 2, "acha": 2, 
         "good": 2, "great": 2, "fast": 1, "thanks": 1, "shukriya": 1, "fine": 1
     }
-    
-    # Text ko words mein todna aur scan karna
     words = text.split()
     for word in words:
         if word in neg_words:
@@ -228,71 +217,9 @@ def analyze_urdu_mood(text):
         elif word in pos_words:
             score += pos_words[word]
             
-    # Score ke hisab se final decision
     if score < 0: return "Negative"
     elif score > 0: return "Positive"
     else: return "Neutral"
-
-# --- 5. LOGIC ENGINE (ENTERPRISE KNOWLEDGE BASE / MINI-RAG) ---
-def get_smart_solution(category, text):
-    """If-Else hta kar Dictionary-based Solution Retrieval lagaya gaya hai"""
-    text = text.lower()
-    
-    # Professional Data Structure for Company Policy
-    KNOWLEDGE_BASE = {
-        "Internet": {
-            "Critical": {"keys": ["red", "blink", "light", "los", "alarm", "lal", "batti"], "ans": "🔴 **Hardware Issue:** Check yellow fiber cable behind router."},
-            "Bandwidth": {"keys": ["slow", "speed", "buffer", "lag", "ahista", "aista", "tez", "stuck", "dead", "crawling"], "ans": "📉 **Speed Optimization:** 1. Disconnect extra devices. 2. Restart router (30s off/on)."},
-            "Gaming": {"keys": ["game", "ping", "latency", "pubg", "cod"], "ans": "🎮 **Gaming Issue:** WiFi is unstable for gaming. Use a LAN Cable for 0% loss."},
-            "Access": {"keys": ["password", "connect", "access", "login", "change", "working"], "ans": "🔑 **WiFi Login:** You can reset your WiFi password via the Jazz World App."},
-            "Coverage": {"keys": ["range", "signal", "weak", "kam", "door", "dropping", "disconnects", "drop"], "ans": "📡 **Weak Signal:** 5GHz has short range. Switch to 2.4GHz."},
-            "Mobile Data": {"keys": ["4g", "lte", "data", "mobile", "3g"], "ans": "📶 **4G Issue:** Restart phone and check APN settings (jazz.internet)."},
-            
-        },
-        "Billing": {
-            "Tax": {"keys": ["tax", "deduction", "cut", "govt", "kat", "automatic", "extra", "charges"], "ans": "💸 **Tax Info:** 15% Withholding Tax applies on every recharge."},
-            "Subscription": {"keys": ["package", "offer", "subscribe", "laga", "lagana", "unwanted", "bundle"], "ans": "📦 **Package Status:** Unsubscribe unwanted offers via *111#."},
-            "Refund": {"keys": ["refund", "balance", "money", "return", "wapis", "double", "incorrect", "wrong"], "ans": "💰 **Refund Claim:** Scanning history... If error found, balance will be reversed."},
-            "History": {"keys": ["history", "bill", "invoice", "check", "account", "detail"], "ans": "📅 **Usage History:** View last 6 months history in the App."},
-            "VAS": {"keys": ["vas", "tune", "song", "game", "caller"], "ans": "🎵 **Value Added Services:** You are subscribed to VAS. Type 'UNSUB' to 6611."},
-            
-        },
-        "Customer Care Call": {
-            "Security": {"keys": ["sim", "block", "puk", "band", "gum", "lock", "duplicate", "nikalni", "lost"], "ans": "🚫 **SIM Security:** Visit Jazz Franchise with CNIC for Biometric verification."},
-            "MNP": {"keys": ["mnp", "port", "switch", "network", "dusri", "change"], "ans": "📲 **Port In:** Visit Franchise to switch to Jazz network."},
-            "Ownership": {"keys": ["ownership", "transfer", "name", "naam", "apne", "biometric", "thumb"], "ans": "📝 **Transfer:** Both parties must visit Franchise for biometric."},
-            "Location": {"keys": ["franchise", "location", "address", "batao", "nearest", "kahan"], "ans": "📍 **Franchise Locator:** Find nearest franchise on Google Maps."},
-            
-        }
-    }
-
-    # Automatically generate valid_keywords from the Knowledge Base so we don't repeat code
-    all_keys = []
-    for cat, items in KNOWLEDGE_BASE.items():
-        for key_type, data in items.items():
-            if key_type != "default":
-                all_keys.extend(data["keys"])
-                
-    base_words = ["net", "internet", "wifi", "router", "modem", "bill", "balance", "money", "sim", "call", "agent", "manager", "staff", "representative", "human", "service", "issue", "problem", "masla", "chal", "nahi", "raha", "ganda"]
-    valid_keywords = set(all_keys + base_words)
-
-    # 1. Out of Scope Check
-    if not any(word in text for word in valid_keywords): 
-        return None, "🤔 **Out of Scope:** I am a Telecom AI trained only for Internet, Billing, and Sim issues."
-
-    # 2. Smart Retrieval Loop (Finds the solution automatically without if-else)
-    if category in KNOWLEDGE_BASE:
-        category_solutions = KNOWLEDGE_BASE[category]
-        for sol_type, data in category_solutions.items():
-            if sol_type != "default":
-                if any(keyword in text for keyword in data["keys"]):
-                    return sol_type, data["ans"]
-                    
-        # ---> THE FIX: SAFE FALLBACK (No more wrong default answers) <---
-        # Agar koi specific keyword match na ho, toh tukka lagane ke bajaye safai se mana kar do
-        return None, "🤖 **Clarification Needed:** Maazrat, main aapka masla poori tarah samajh nahi saka. Baraye meharbani apne masle ko thora wazeh (clear) alfaz mein dobara likhain, taake main theek se aapki rehnumai kar sakun."
-        
-    return None, "🤖 **Clarification Needed:** System is waqt aapki baat samajhne se qasir hai. Baraye meharbani dobara koshish karein."
 
 # --- 6. SESSION STATE ---
 if 'df' not in st.session_state: st.session_state['df'] = load_data_fresh()
@@ -309,15 +236,22 @@ if user_role == "Customer Portal":
     st.markdown("<h1>👋 Jazz Intelligent Support</h1>", unsafe_allow_html=True)
     
     if 'customer_logged_in' not in st.session_state: st.session_state['customer_logged_in'] = False
+    
+    # 🟢 THE FIX 1: SECURE CLOUD AUTHENTICATION LOGIN 🟢
     if not st.session_state['customer_logged_in']:
         with st.form("login"):
-            phone = st.text_input("Phone Number:", placeholder="0300xxxxxxx")
-            if st.form_submit_button("🔓 Access"):
-                if len(phone) == 11:
+            st.markdown("### 🔐 Secure Customer Login")
+            st.caption("Please login with your verified Phone Number and Password.")
+            phone = st.text_input("Phone Number:", placeholder="e.g. 03001234567")
+            password = st.text_input("Password:", type="password", placeholder="Enter your password")
+            
+            if st.form_submit_button("🔓 Access Portal"):
+                if authenticate_customer(phone, password):
                     st.session_state['customer_logged_in'] = True
                     st.session_state['phone'] = phone
                     st.rerun()
-                else: st.error("Invalid Number")
+                else: 
+                    st.error("🚫 Invalid Phone Number or Password. Kripya apne password check karein.")
     else:
         # Chat/User Management
         col1, col2 = st.columns([4,1])
@@ -340,30 +274,20 @@ if user_role == "Customer Portal":
                 with st.spinner("Thinking..."):
                     time.sleep(0.5)
                     
-                    # ✅ CHANGE 2: Yahan Confidence Score aur Fallback lagaya gaya hai
                     prediction_probs = model.predict_proba([prompt])[0]
                     max_prob = max(prediction_probs)
                     category = model.classes_[prediction_probs.argmax()]
                     
                     if max_prob < 0.60:
                         category = fallback_intent_classifier(prompt)
-                    # -----------------------------------------------------------
                     
-                    sol_type, raw_solution = get_smart_solution(category, prompt)
+                    mood = analyze_urdu_mood(prompt)
+                    final_response = get_rag_solution(prompt, category, mood)
                     
-                    if sol_type is None:
-                        final_response = raw_solution
-                        st.session_state['show_buttons'] = False
-                    else:
-                        # NEW: Calling the custom bilingual sentiment function instead of TextBlob
-                        mood = analyze_urdu_mood(prompt)
-                        # AI Service Call
-                        final_response = get_gemini_response(prompt, category, raw_solution, mood)
-                        
-                        st.session_state['show_buttons'] = True
-                        st.session_state['last_cat'] = category
-                        st.session_state['last_mood'] = mood
-                        st.session_state['last_txt'] = prompt
+                    st.session_state['show_buttons'] = True
+                    st.session_state['last_cat'] = category
+                    st.session_state['last_mood'] = mood
+                    st.session_state['last_txt'] = prompt
                     
                     st.markdown(final_response)
                     st.session_state.messages.append({"role": "assistant", "content": final_response})
@@ -408,10 +332,7 @@ elif user_role == "Manager Dashboard":
         st.markdown("<h1>📊 Executive Analytics</h1>", unsafe_allow_html=True)
         
         df_full = load_data_fresh()
-        
-        # 🟢 THE FIX 1: "New Today" REAL-TIME DATABASE COUNTER (PKT SYNCED) 🟢
         today_date_str = (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d")
-        # Ensure Time column is string to avoid errors, then check for today's date
         today_complaints_count = df_full['Time'].astype(str).str.contains(today_date_str).sum()
         
         escalated = len(df_full[df_full['status'] == 'Escalated'])
@@ -424,10 +345,31 @@ elif user_role == "Manager Dashboard":
         c3.metric("Solved", solved)
         c4.metric("Total DB", total)
         
+        # 🟢 THE FIX 2: VIP CUSTOMER MANAGEMENT BLOCK 🟢
+        st.markdown("---")
+        st.subheader("👤 Customer Management (Admin Control)")
+        with st.container():
+            with st.form("add_new_customer"):
+                st.markdown("Register a new verified customer to allow them portal access.")
+                cc1, cc2 = st.columns(2)
+                new_cust_phone = cc1.text_input("New Customer Phone Number:", placeholder="e.g. 03001234567")
+                new_cust_pass = cc2.text_input("Assign Password:", type="password", placeholder="e.g. jazz123")
+                
+                if st.form_submit_button("➕ Register Verified Customer"):
+                    if new_cust_phone and new_cust_pass:
+                        res = register_new_customer(new_cust_phone, new_cust_pass)
+                        if res == "Success":
+                            st.success(f"🎉 Customer {new_cust_phone} successfully registered in Cloud DB!")
+                        elif res == "Exists":
+                            st.warning(f"⚠️ Account for {new_cust_phone} already exists!")
+                        else:
+                            st.error("🚫 Database Connection Error. Try again.")
+                    else:
+                        st.error("⚠️ Please fill both Phone Number and Password fields.")
+
         st.markdown("---")
         st.subheader("🔴 Priority Action Queue")
         
-        # 🟢 THE FIX 2 & 3: SMART SORTING & SCROLLABLE CONTAINER 🟢
         pending_df = df_full[df_full['status'] == 'Escalated'].copy()
         
         if not pending_df.empty:
@@ -441,16 +383,14 @@ elif user_role == "Manager Dashboard":
                 else: return 4
             
             pending_df['Priority_Score'] = pending_df['Sentiment'].apply(get_mood_priority)
-            
             pending_df = pending_df.sort_values(by=['Priority_Score', 'Time'], ascending=[True, False])
             
             with st.container(height=450): 
                 for index, row in pending_df.iterrows():
-                    c1, c2, c3 = st.columns([1, 4, 1])
+                    c1, c2, c3 = st.columns([1.2, 4.5, 1.8]) # ✅ Fixed Resolve Button Size
                     c1.warning(f"#{row.get('Ticket_ID','Old')}")
                     
                     mood_icon = "😡" if row.get('Sentiment') == 'Negative' else ("😊" if row.get('Sentiment') == 'Positive' else "😐")
-                    # ✅ YAHAN PHONE NUMBER WALI LINE UPDATE HO GAYI HAI ✅
                     c2.info(f"{mood_icon} **{row['category']}** | 📱 Phone: **{row.get('Phone_Number', 'Not Provided')}** | Mood: {row.get('Sentiment')}\n\n{row['text']}")
                     
                     if c3.button("✅ Resolve", key=f"btn_{index}"):
@@ -462,20 +402,14 @@ elif user_role == "Manager Dashboard":
         else:
             st.success("🎉 No escalated complaints in the queue!")
         
-        # GRAPHS SECTION (Intact)
+        # 🟢 THE FIX 3: ADVANCED FIXED GRAPHS 🟢
         st.markdown("### 📈 Advanced Executive Analytics")
         g1, g2 = st.columns(2)
         with g1:
-            v = df_full['category'].value_counts().reset_index()
-            v.columns=['Category','Count']
-            fig1 = px.pie(v, names='Category', values='Count', title="Category Distribution", template="plotly_dark", color_discrete_sequence=px.colors.qualitative.Pastel)
-            
-            fig1.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color="#ffffff", size=14),
-                title_font=dict(color="#ffffff", size=20)
-            )
+            v_bar = df_full['category'].value_counts().reset_index()
+            v_bar.columns = ['Category', 'Count']
+            fig1 = px.bar(v_bar, x='Category', y='Count', title="Complaints by Category", template="plotly_dark", color='Category', text_auto=True)
+            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#ffffff", size=14), title_font=dict(color="#ffffff", size=20), height=450, margin=dict(t=60, b=20, l=20, r=20), showlegend=False)
             st.plotly_chart(fig1, theme=None, use_container_width=True)
             
         with g2:
@@ -483,13 +417,7 @@ elif user_role == "Manager Dashboard":
                 s = df_full['Sentiment'].value_counts().reset_index()
                 s.columns=['Mood','Count']
                 fig2 = px.pie(s, names='Mood', values='Count', hole=0.5, title="Mood Radar", color='Mood', color_discrete_map={"Negative":"#FF5252", "Positive":"#69F0AE", "Neutral":"#38bdf8"}, template="plotly_dark")
-                
-                fig2.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color="#ffffff", size=14),
-                    title_font=dict(color="#ffffff", size=20)
-                )
+                fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#ffffff", size=14), title_font=dict(color="#ffffff", size=20), height=450, margin=dict(t=60, b=20, l=20, r=20), legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5))
                 st.plotly_chart(fig2, theme=None, use_container_width=True)
         
         if not df_full.empty:

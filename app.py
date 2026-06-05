@@ -251,7 +251,7 @@ if user_role == "Customer Portal":
                     st.session_state['phone'] = phone
                     st.rerun()
                 else: 
-                    st.error("🚫 Invalid Phone Number or Password. Kripya apne password check karein.")
+                    st.error("🚫 Invalid Phone Number or Password. Bara-e-meharbani apni details dobara check karein.")
     else:
         # Chat/User Management
         col1, col2 = st.columns([4,1])
@@ -288,6 +288,7 @@ if user_role == "Customer Portal":
                     st.session_state['last_cat'] = category
                     st.session_state['last_mood'] = mood
                     st.session_state['last_txt'] = prompt
+                    st.session_state['last_ai_response'] = final_response
                     
                     st.markdown(final_response)
                     st.session_state.messages.append({"role": "assistant", "content": final_response})
@@ -295,7 +296,7 @@ if user_role == "Customer Portal":
         if st.session_state.get('show_buttons', False):
             c1, c2 = st.columns(2)
             if c1.button("✅ Solved"):
-                row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Solved', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': "Auto", 'Time': (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"), 'Phone_Number': st.session_state['phone'], 'Data_Source': 'Live'}
+                row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Solved', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': "Auto", 'Time': (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"), 'Phone_Number': st.session_state['phone'], 'Data_Source': 'Live', 'ai_response': st.session_state.get('last_ai_response', '')}
                 save_ticket(row)
                 st.session_state['session_counter'] += 1
                 st.success("Saved!")
@@ -309,7 +310,7 @@ if user_role == "Customer Portal":
                 ph = st.text_input("Confirm Phone:", value=st.session_state.get('phone',''))
                 if st.form_submit_button("Send Request"):
                     tid = random.randint(1000,9999)
-                    row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Escalated', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': tid, 'Time': (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"), 'Phone_Number': ph, 'Data_Source': 'Live'}
+                    row = {'text': st.session_state['last_txt'], 'category': st.session_state['last_cat'], 'status': 'Escalated', 'Sentiment': st.session_state['last_mood'], 'Ticket_ID': tid, 'Time': (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"), 'Phone_Number': ph, 'Data_Source': 'Live', 'ai_response': st.session_state.get('last_ai_response', '')}
                     save_ticket(row)
                     st.session_state['session_counter'] += 1
                     st.success(f"Ticket #{tid} Escalated!")
@@ -392,6 +393,15 @@ elif user_role == "Manager Dashboard":
                     
                     mood_icon = "😡" if row.get('Sentiment') == 'Negative' else ("😊" if row.get('Sentiment') == 'Positive' else "😐")
                     c2.info(f"{mood_icon} **{row['category']}** | 📱 Phone: **{row.get('Phone_Number', 'Not Provided')}** | Mood: {row.get('Sentiment')}\n\n{row['text']}")
+                    
+                    ai_resp = row.get('ai_response', '')
+                    if ai_resp and str(ai_resp).strip() and str(ai_resp).strip() != 'nan':
+                        with c2.expander("🤖 View AI Response"):
+                            st.markdown(f"""
+<div style='background:rgba(221,36,118,0.07); border:1px solid rgba(221,36,118,0.3); border-left:3px solid #DD2476; border-radius:8px; padding:10px 14px; margin-top:4px;'>
+<div style='font-size:11px; font-weight:700; color:#DD2476; letter-spacing:0.8px; margin-bottom:5px;'>🤖 AI RESPONSE DELIVERED</div>
+<div style='font-size:12.5px; color:#cbd5e1; line-height:1.6;'>{ai_resp}</div>
+</div>""", unsafe_allow_html=True)
                     
                     if c3.button("✅ Resolve", key=f"btn_{index}"):
                         resolve_ticket(row['Ticket_ID'])

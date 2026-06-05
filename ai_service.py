@@ -32,7 +32,7 @@ def get_rag_solution(user_text, category, mood="Neutral"):
     Gemini is highly restricted ONLY to the imported ISP Knowledge Base.
     """
     if "GEMINI_API_KEY" not in st.secrets:
-        return "System API Key missing hai. Kripya backend admin se rabta karein."
+        return "System API Key missing hai. Bara-e-karam backend admin se rabta karein."
 
     try:
         # Step 1: Language Detect Karo (Roman Urdu vs English)
@@ -41,7 +41,7 @@ def get_rag_solution(user_text, category, mood="Neutral"):
         # Step 2: Database se Category uthao
         solutions = ISP_KNOWLEDGE_BASE.get(category, [])
         if not solutions:
-            return "Maazrat, is waqt system mein is category ka solution update nahi hai. Kripya Helpline par call karein."
+            return "Maazrat, is waqt system mein is maslay ka solution dastiyab nahi hai. Bara-e-meharbani mazeed rehnumai ke liye Helpline par call karein."
         
         # Step 3: Smart Trigger Matching (Retrieval)
         matched_solutions = []
@@ -64,7 +64,7 @@ def get_rag_solution(user_text, category, mood="Neutral"):
             
         # Step 5: Strict Language Tone Setup
         if lang == "roman_urdu":
-            tone_instruction = "IMPORTANT: You MUST reply ONLY in Pakistani Roman Urdu. Be polite, and use technical ISP terms clearly. DO NOT use Hindi words like kripya, kshama, or prabandh."
+            tone_instruction = "IMPORTANT: You MUST reply ONLY in natural Pakistani Roman Urdu. Be polite, and use technical ISP terms clearly. Use words like 'Bara-e-meharbani', 'Shukriya', or 'Maazrat'. ABSOLUTELY DO NOT use Hindi terms (e.g., avoid kripya, kshama, prabandh, sampark)."
         else:
             tone_instruction = "IMPORTANT: You MUST reply ONLY in Professional Corporate English (or Basic English depending on user proficiency). Be polite and empathetic."
 
@@ -103,7 +103,7 @@ CRITICAL ENTERPRISE GUARDRAILS (MUST OBEY):
         
     except Exception as e:
         print(f"RAG System Error: {e}")
-        return "System network error. Kripya apna router restart karein ya helpline par call karein."
+        return "System network error. Bara-e-karam apna router restart karein ya hamari helpline par rabta karein."
 
 
 def fallback_intent_classifier(user_text):

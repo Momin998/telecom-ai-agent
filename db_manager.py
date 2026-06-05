@@ -59,7 +59,8 @@ def save_ticket(row_dict):
             "ticket_id": str(row_dict.get("Ticket_ID")), # Convert to string to avoid mismatch
             "time": row_dict.get("Time"),
             "phone_number": row_dict.get("Phone_Number"),
-            "data_source": row_dict.get("Data_Source")
+            "data_source": row_dict.get("Data_Source"),
+            "ai_response": row_dict.get("ai_response")
         }
         
         supabase.table("tickets").insert(db_row).execute()
